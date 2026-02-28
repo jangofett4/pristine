@@ -1,0 +1,5 @@
+target remote :1234
+symbol-file bin/kernel.elf
+b kmain
+layout split
+c

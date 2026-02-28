@@ -1,0 +1,9 @@
+target remote :1234
+symbol-file bin/boot/stage1/stage1.elf
+symbol-file bin/boot/stage2/stage2.elf
+add-symbol-file bin/hda/kernel.elf
+b *0x7c00
+b stage2_boot
+b kmain
+layout split
+c
