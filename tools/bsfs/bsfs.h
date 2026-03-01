@@ -8,6 +8,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef BSFS_DEBUG
+#include <stdlib.h>
+#endif
+
 #define BSFS_MAGIC      0x42534653
 #define BSFS_VERSION    0x01010100
 
@@ -46,6 +50,11 @@ typedef struct {
 #define BSFS_INODE_PERM_WRITE 0x02
 #define BSFS_INODE_PERM_READ  0x04
 
+#define BSFS_INODE_NULL 0
+#define BSFS_INODE_ROOT 1
+
+#define BSFS_INODE_OFFSET(header, inode_idx) ((uint64_t)(header)->inode_table_start * (header)->block_size + (sizeof(bsfs_inode_t) * (inode_idx)))
+
 typedef struct {
     uint8_t  type;
     uint16_t permissions;
@@ -61,12 +70,27 @@ typedef struct {
     uint32_t blocks_l1indirect; // 4MiB
     uint32_t blocks_l2indirect; // 4GiB
     uint32_t blocks_l3indirect; // 4TiB
-    uint8_t  reserved[23];
+    uint8_t  reserved[25];
 } __attribute__((packed)) bsfs_inode_t;
 
 typedef struct {
     uint32_t inode;
-    uint8_t  name[124];
+    char     name[124];
 } __attribute__((packed)) bsfs_dirent_t;
 
-bool bsfs_block_is_free(const bsfs_header_t *header, uint32_t block_id);
+void bsfs_bitmap_set(uint8_t *bitmap, uint32_t index);
+void bsfs_bitmap_clear(uint8_t *bitmap, uint32_t index);
+bool bsfs_bitmap_test(uint8_t *bitmap, uint32_t index);
+uint32_t bsfs_bitmap_find(uint8_t *bitmap, uint32_t size);
+uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint32_t block_bitmap_size);
+uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap, uint32_t inode_bitmap_size);
+
+void bsfs_trim_inode(bsfs_inode_t *inode);
+
+// "allocates" a bsfs_dirent_t and returns an offset in the image
+uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint32_t block_bitmap_size);
+
+#define BSFS_PANIC(fmt, ...) do { \
+    fprintf(stderr, "PANIC %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+    exit(1); \
+} while(0);
