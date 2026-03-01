@@ -1,6 +1,6 @@
 /*
  * Pristine
- * mkfs-populate - filesystem populate tool
+ * bsfs-populate - filesystem populate tool
  * SPDX-License-Identifier: MIT
  */
 
@@ -109,9 +109,10 @@ int main(int argc, char **argv) {
         perror("fopen");
         return 1;
     }
+    setvbuf(image, NULL, _IOFBF, 1024 * 1024 * 64);
 
     bsfs_header_t header;
-    fseek(image, bsfs_header_idx, SEEK_SET);
+    fseeko(image, bsfs_header_idx, SEEK_SET);
     if (!fread(&header, sizeof(bsfs_header_t), 1, image)) {
         printf("Error: unable to read header at offset 0x%04x\n", bsfs_header_idx);
         return 1;
@@ -125,7 +126,7 @@ int main(int argc, char **argv) {
     if (header.version != BSFS_VERSION) {
         if (!final_force) {
             printf("Error: Filesystem version mismatch. Image: %u, Current: %u.\n", header.version, BSFS_VERSION);
-            printf("Use --force to force populate the image file.\n");
+            printf("Use --force to try force populate the image file.\n");
             return 1;
         } else {
             printf("Warning: Force populating filesystem version mismatched image!\n");
@@ -136,6 +137,10 @@ int main(int argc, char **argv) {
         printf("Error: Filesystem block size mismatch. Image: %u, Current: %lu.\n", header.block_size, final_blocksize);
         return 1;
     }
+
+    fseeko(image, 0, SEEK_END);
+    uint64_t image_file_size = ftello(image);
+    fseeko(image, 0, SEEK_SET);
 
     printf("Filesystem information:\n");
     printf(" Image label:        %s\n", header.label);
@@ -153,18 +158,41 @@ int main(int argc, char **argv) {
     printf(" Inode table blocks: 0x%04x\n", header.inode_table_blocks);
     printf(" Data start:         0x%04x\n", header.data_start);
     printf(" Image Size:         %.2f KiB (calculated)\n", header.total_blocks * final_blocksize / 1024.f);
+    printf(" Image File Size:    %.2f KiB (file size)\n", image_file_size / 1024.f);
+
+    if (image_file_size != header.total_blocks * final_blocksize) {
+        int64_t diff;
+        if (image_file_size > header.total_blocks * final_blocksize) {
+            diff = image_file_size - header.total_blocks * final_blocksize;
+        } else {
+            diff = header.total_blocks * final_blocksize - image_file_size;
+        }
+
+        printf("Warning: Calculated image size and file size does not match (%lu bytes, %.2f KiB)\n", diff, diff / 1024.f);
+    }
     
     uint32_t block_bitmap_size = header.block_bitmap_blocks * header.block_size;
     uint32_t inode_bitmap_size = header.inode_bitmap_blocks * header.block_size;
+    uint32_t inode_table_size  = header.inode_count * sizeof(bsfs_inode_t);
+
+    uint32_t total_block_count   = image_file_size / final_blocksize;
+    uint32_t total_inode_count   = total_block_count / 4;
+    uint32_t block_bitmap_blocks = DIV_CEIL(block_bitmap_size, final_blocksize);
+    uint32_t inode_bitmap_blocks = DIV_CEIL(inode_bitmap_size, final_blocksize);
+    uint32_t inode_table_blocks  = DIV_CEIL(inode_table_size, final_blocksize);
+    uint32_t reserved_blocks     = final_offset + 1;
+    uint32_t metadata_blocks     = reserved_blocks + block_bitmap_blocks + inode_bitmap_blocks + inode_table_blocks;
+
+    header.free_blocks = total_block_count - metadata_blocks;
+    header.free_inodes = total_inode_count;
 
     uint8_t *block_bitmap     = malloc(block_bitmap_size);
     uint8_t *inode_bitmap     = malloc(inode_bitmap_size);
-    bsfs_inode_t *inode_table = malloc(header.inode_count * sizeof(bsfs_inode_t));
+    bsfs_inode_t *inode_table = malloc(inode_table_size);
 
     memset(block_bitmap, 0, block_bitmap_size);
     memset(inode_bitmap, 0, inode_bitmap_size);
     memset(inode_table, 0, header.inode_count * sizeof(bsfs_inode_t));
-    
 
     // Right off the bat 0..(final_offset + 1) blocks are occupied with metadata & offset
     for (size_t i = 0; i < (final_offset + 1); i++) {
@@ -185,22 +213,24 @@ int main(int argc, char **argv) {
 
     time_t populate_time = time(NULL);
 
-    // First inode is always root (/)
-    uint32_t root_inode_idx = bsfs_alloc_inode(&header, inode_bitmap, inode_bitmap_size);
+    // First inode is sentinel & just skipped over.
+    uint32_t sentinel_inode_idx = bsfs_alloc_inode(&header, inode_bitmap);
+
+    // Second inode is always root (/)
+    uint32_t root_inode_idx = bsfs_alloc_inode(&header, inode_bitmap);
     bsfs_inode_t root_inode = inode_table[root_inode_idx];
     populate_dir(root_path, image, &root_inode, &header, block_bitmap, block_bitmap_size, inode_bitmap, inode_bitmap_size, inode_table);
-    
-    // And first dirent is also always root (/)
-    uint64_t root_dirent_offset = bsfs_alloc_dirent(&header, &root_inode, block_bitmap, block_bitmap_size);
+    inode_table[root_inode_idx] = root_inode;
+
+    // And first dirent is root (/)
+    uint64_t root_dirent_offset = bsfs_alloc_dirent(&header, &root_inode, block_bitmap);
     bsfs_dirent_t root_dirent = {
         .inode = root_inode_idx,
         .name = "/"
     };
+    header.root_inode = root_inode_idx;
 
     // Write root inode & dirent
-    fseeko(image, BSFS_INODE_OFFSET(&header, root_inode_idx), SEEK_SET);
-    fwrite(&root_inode, sizeof(bsfs_inode_t), 1, image);
-
     fseeko(image, root_dirent_offset, SEEK_SET);
     fwrite(&root_dirent, sizeof(bsfs_dirent_t), 1, image);
 
@@ -213,11 +243,14 @@ int main(int argc, char **argv) {
     
     fseeko(image, header.inode_table_start * header.block_size, SEEK_SET);
     fwrite((uint8_t*)inode_table, 1, header.inode_table_blocks * header.block_size, image);
+
+    // Finally, write the header
+    fseeko(image, bsfs_header_idx, SEEK_SET);
+    fwrite(&header, sizeof(bsfs_header_t), 1, image);
     
     free(block_bitmap);
     free(inode_bitmap);
     free(inode_table);
-    // free(dirents);
 
     fclose(image);
 }
@@ -247,10 +280,10 @@ void populate_dir(const char *path, FILE *image, bsfs_inode_t *inode, bsfs_heade
         snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name);
 
         if (entry->d_type == DT_DIR) {
-            uint32_t subfolder_inode_idx = bsfs_alloc_inode(header, inode_bitmap, inode_bitmap_size);
+            uint32_t subfolder_inode_idx = bsfs_alloc_inode(header, inode_bitmap);
             printf("Entering subfolder: '%s'(Inode: %u)\n", subpath, subfolder_inode_idx);
 
-            uint64_t new_dirent_offset = bsfs_alloc_dirent(header, inode, block_bitmap, block_bitmap_size);
+            uint64_t new_dirent_offset = bsfs_alloc_dirent(header, inode, block_bitmap);
             if (new_dirent_offset == UINT64_MAX) {
                 BSFS_PANIC("populate_dir: bsfs_alloc_dirent returned sentinel value when populating with path '%s'", subpath);
                 return;
@@ -270,7 +303,7 @@ void populate_dir(const char *path, FILE *image, bsfs_inode_t *inode, bsfs_heade
             inode->size += sizeof(bsfs_dirent_t);
             printf("Exited subfolder: '%s' (Inode: %u), %lu dirents\n", subpath, subfolder_inode_idx, subfolder_inode.size / sizeof(bsfs_dirent_t));
         } else if (entry->d_type == DT_REG) {
-            uint32_t file_inode_idx = bsfs_alloc_inode(header, inode_bitmap, inode_bitmap_size);
+            uint32_t file_inode_idx = bsfs_alloc_inode(header, inode_bitmap);
             inode_table[file_inode_idx].type = BSFS_INODE_TYPE_FILE;
             inode_table[file_inode_idx].permissions = BSFS_INODE_PERM_READ | BSFS_INODE_PERM_WRITE;
             inode_table[file_inode_idx].created = populate_time;
@@ -282,35 +315,112 @@ void populate_dir(const char *path, FILE *image, bsfs_inode_t *inode, bsfs_heade
             fseeko(file, 0, SEEK_END);
             uint64_t file_size = ftello(file);
             fseeko(file, 0, SEEK_SET);
-            if (file_size / header->block_size > 10) {
-                fclose(file);
-                BSFS_PANIC("File size exceeds %.2f KiB, cannot fit into blocks_direct, unimplemented!", header->block_size * 10 / 1024.f);
-                return;
-            }
+            uint32_t total_blocks_required = DIV_CEIL(file_size, header->block_size);
+
+            uint32_t l1_capacity      = header->block_size / sizeof(uint32_t);                          // 1024
+            uint32_t l1indirect_start = sizeof(inode->blocks_direct) / sizeof(inode->blocks_direct[0]); // 10
+            uint32_t l2indirect_start = l1indirect_start + l1_capacity;                                 // 10 + 1024 = 1034
+            uint32_t l3indirect_start = l2indirect_start + l1_capacity * l1_capacity;                   // 1034 + (1024 * 1024) = 1049610
+
+            bool needs_l1indirect = total_blocks_required >= l1indirect_start;
+            bool needs_l2indirect = total_blocks_required >= l2indirect_start;
+            bool needs_l3indirect = total_blocks_required >= l3indirect_start;
             
-            printf("Writing file '%s' (Inode %u, %lu blocks): ", subpath, file_inode_idx, DIV_CEIL(file_size, header->block_size));
+            printf("Writing file '%s' (Inode %u, %u blocks, L1: %i, L2: %i, L3: %i)...", 
+                subpath, 
+                file_inode_idx, 
+                total_blocks_required, 
+                needs_l1indirect,
+                needs_l2indirect,
+                needs_l3indirect
+            );
+            fflush(stdout);
+
             uint8_t *bytes = malloc(header->block_size);
             size_t read = 0;
+            uint32_t file_block_idx;
+
+            // Characters: ░▒▓█
             while ((read = fread(bytes, 1, header->block_size, file))) {
-                if (blocks == 10) {
-                    // TODO: implement indirect blocks
+                if (blocks < l1indirect_start) {
+                    file_block_idx = bsfs_alloc_block(header, block_bitmap);
+                    fseeko(image, header->block_size * file_block_idx, SEEK_SET);
+                    fwrite(bytes, 1, read, image);
+                    inode_table[file_inode_idx].blocks_direct[blocks] = file_block_idx;
+                    inode_table[file_inode_idx].blocks++;
+                    inode_table[file_inode_idx].size += read;
+                    blocks++;
+                } else if (blocks >= l1indirect_start && blocks < l2indirect_start) {
+                    uint32_t l1indirect_idx = bsfs_alloc_block(header, block_bitmap);
+                    uint32_t *l1indirect_table = (uint32_t*)malloc(header->block_size);
+                    uint32_t l1blocks = 0;
+
+                    do {
+                        file_block_idx = bsfs_alloc_block(header, block_bitmap);
+                        fseeko(image, header->block_size * file_block_idx, SEEK_SET);
+                        fwrite(bytes, 1, read, image);
+                        l1indirect_table[l1blocks] = file_block_idx;
+                        inode_table[file_inode_idx].blocks++;
+                        inode_table[file_inode_idx].size += read;
+                        
+                        blocks++;
+                        l1blocks++;
+                    } while (blocks < l2indirect_start && (read = fread(bytes, 1, header->block_size, file)));
+                    
+                    inode_table[file_inode_idx].blocks_l1indirect = l1indirect_idx;
+                    
+                    fseeko(image, header->block_size * l1indirect_idx, SEEK_SET);
+                    fwrite(l1indirect_table, sizeof(uint32_t), header->block_size / sizeof(uint32_t), image);
+                    free(l1indirect_table);
+                } else if (blocks >= l2indirect_start && blocks < l3indirect_start) {
+                    uint32_t l2indirect_idx = bsfs_alloc_block(header, block_bitmap);
+                    uint32_t *l2indirect_table = (uint32_t*)malloc(header->block_size);
+                    uint32_t l2blocks = 0;
+
+                    do {
+                        uint32_t l1indirect_idx = bsfs_alloc_block(header, block_bitmap);
+                        uint32_t *l1indirect_table = (uint32_t*)malloc(header->block_size);
+                        uint32_t l1blocks = 0;
+                        
+                        do {
+                            file_block_idx = bsfs_alloc_block(header, block_bitmap);
+                            fseeko(image, header->block_size * file_block_idx, SEEK_SET);
+                            fwrite(bytes, 1, read, image);
+                            l1indirect_table[l1blocks] = file_block_idx;
+                            inode_table[file_inode_idx].blocks++;
+                            inode_table[file_inode_idx].size += read;
+                            
+                            blocks++;
+                            l1blocks++;
+                        } while (l1blocks < l1_capacity && (read = fread(bytes, 1, header->block_size, file)));
+                        
+                        // fflush(image);
+
+                        l2indirect_table[l2blocks] = l1indirect_idx;
+                        l2blocks++;
+
+                        fseeko(image, header->block_size * l1indirect_idx, SEEK_SET);
+                        fwrite(l1indirect_table, sizeof(uint32_t), header->block_size / sizeof(uint32_t), image);
+                        free(l1indirect_table);
+                        printf("▓");
+                        fflush(stdout);
+                    } while (blocks < l3indirect_start && read);
+
+                    inode_table[file_inode_idx].blocks_l2indirect = l2indirect_idx;
+                    fseeko(image, header->block_size * l2indirect_idx, SEEK_SET);
+                    fwrite(l2indirect_table, sizeof(uint32_t), header->block_size / sizeof(uint32_t), image);
+                    free(l2indirect_table);
+                } else if (blocks >= l3indirect_start) {
                     fclose(file);
                     free(bytes);
-                    BSFS_PANIC("File size exceeds %.2f KiB, cannot fit into blocks_direct, unimplemented!", header->block_size * 10 / 1024.f);
-                    return;
+                    BSFS_PANIC("File '%s' with size exceeds %.2f KiB, cannot fit into blocks_l2indirect, blocks_l3indirect unimplemented!", entry->d_name, header->block_size * 10 / 1024.f);
+                } else {
+                    BSFS_PANIC("File '%s' with size %.2f GiB exceeds maximum supported file size.", entry->d_name, file_size / 1024.f / 1024 / 1024);
                 }
-                uint32_t file_block_idx = bsfs_alloc_block(header, block_bitmap, block_bitmap_size);
-                fseeko(image, header->block_size * file_block_idx, SEEK_SET);
-                fwrite(bytes, 1, read, image);
-                inode_table[file_inode_idx].blocks_direct[blocks] = file_block_idx;
-                inode_table[file_inode_idx].blocks++;
-                inode_table[file_inode_idx].size += read;
-                blocks++;
-                printf(".");
             }
             printf("\n");
 
-            uint64_t new_dirent_offset = bsfs_alloc_dirent(header, inode, block_bitmap, block_bitmap_size);
+            uint64_t new_dirent_offset = bsfs_alloc_dirent(header, inode, block_bitmap);
             if (new_dirent_offset == UINT64_MAX) {
                 BSFS_PANIC("populate_dir: bsfs_alloc_dirent returned sentinel value when populating with path '%s'", subpath);
                 return;
