@@ -4,3 +4,4 @@ bin/**/*
 tools/bsfs/spec
 tools/bsfs/root
 tools/bsfs/bin
+tools/bsfs/hda.img

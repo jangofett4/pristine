@@ -92,13 +92,24 @@ uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap) {
         BSFS_PANIC("bsfs_alloc_block: No free block remain on image!");
         return UINT32_MAX;
     }
+    #ifdef BSFS_DEBUG
+    if (free_block < header->data_start) {
+        BSFS_PANIC("bsfs_alloc_block: allocated metadata block %u!", free_block);
+    }
+    #endif
     bsfs_bitmap_set(block_bitmap, free_block);
+    if (header->free_blocks == 0)
+        BSFS_PANIC("No more free blocks left while allocating a new one");
     header->free_blocks--;
     return free_block;
 }
 
 uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap) {
     uint32_t free_blocks = bsfs_bitmap_find_contiguous(block_bitmap, area_count, header->total_blocks);
+    if (free_blocks == UINT32_MAX) {
+        BSFS_PANIC("bsfs_alloc_block: No free block remain on image!");
+        return UINT32_MAX;
+    }
     if (free_blocks != UINT32_MAX) {
         bsfs_bitmap_set_contiguous(block_bitmap, area_count * 8, free_blocks);
         header->free_blocks -= free_blocks;
@@ -160,7 +171,7 @@ uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *
             return UINT64_MAX;
         }
         uint32_t block_idx = bsfs_alloc_block(header, block_bitmap);
-        inode->blocks_direct[current_block] = block_idx;
+        inode->blocks_direct[inode->blocks] = block_idx;
         inode->blocks++;
     }
 

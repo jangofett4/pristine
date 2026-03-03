@@ -172,8 +172,6 @@ int main(int argc, char **argv) {
     madvise(inode_table, inode_table_size, MADV_WILLNEED);
 #endif
 
-    printf("here\n");
-
     fseeko(image, header.block_bitmap_start * header.block_size, SEEK_SET);
     fread(block_bitmap, 1, block_bitmap_size, image);
 
@@ -183,33 +181,16 @@ int main(int argc, char **argv) {
     fseeko(image, header.inode_table_start * header.block_size, SEEK_SET);
     fread(inode_table, sizeof(bsfs_inode_t), header.inode_count, image);
 
-    printf("here\n");
-
     bsfs_inode_t root_inode = inode_table[header.root_inode];
     bsfs_dirent_t *root_dirent = (bsfs_dirent_t*)malloc(root_inode.size);
 
     fseeko(image, root_inode.blocks_direct[0] * header.block_size, SEEK_SET);
     fread(root_dirent, sizeof(bsfs_dirent_t), root_inode.size / sizeof(bsfs_dirent_t), image);
 
-    printf("root dirent 0: %s\n", root_dirent[0].name);
-
+    printf("root_inode size: %lu\n", root_inode.size);
     for (size_t i = 0; i < root_inode.size / sizeof(bsfs_dirent_t); i++) {
         bsfs_inode_t inode = inode_table[root_dirent[i].inode];
-        printf("Dirent %s, Inode:\n", root_dirent[i].name);
-        // printf("type:              %u\n", inode.type);
-        // printf("permissions:       %hu\n", inode.permissions);
-        // printf("uid:               %u\n", inode.uid);
-        // printf("gid:               %u\n", inode.gid);
-        printf("size:              %lu (%.2f KiB, %.2f MiB)\n", inode.size, inode.size / 1024.f, inode.size / 1024.f / 1024);
-        // printf("blocks:            %u\n", inode.blocks);
-        // printf("created:           %lu\n", inode.created);
-        // printf("modified:          %lu\n", inode.modified);
-        // printf("accessed:          %lu\n", inode.accessed);
-        // printf("link_count:        %u\n", inode.link_count);
-        // printf("blocks_direct:     %u %u %u %u %u %u %u %u %u %u\n", inode.blocks_direct[0], inode.blocks_direct[1], inode.blocks_direct[2], inode.blocks_direct[3], inode.blocks_direct[4], inode.blocks_direct[5], inode.blocks_direct[6], inode.blocks_direct[7], inode.blocks_direct[8], inode.blocks_direct[9]);
-        // printf("blocks_l1indirect: %u\n", inode.blocks_l1indirect);
-        // printf("blocks_l2indirect: %u\n", inode.blocks_l2indirect);
-        // printf("blocks_l3indirect: %u\n", inode.blocks_l3indirect);
+        printf("Dirent: %s, Inode: %u, Size: %lu, (%.2f KiB, %.2f MiB)\n", root_dirent[i].name, root_dirent[i].inode, inode.size, inode.size / 1024.f, inode.size / 1024.f / 1024);
     }
 
     free(block_bitmap);

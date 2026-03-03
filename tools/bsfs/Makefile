@@ -1,16 +1,17 @@
 C = clang
-CFLAGS = -O2 -std=c11 -DBSFS_DEBUG=1
+CFLAGS = -O2 -std=c11 -DBSFS_DEBUG=1 -g
 
 all: mkfs.bsfs bsfs-populate bsfs-extract
 
 clean:
-	rm -f bsfs-populate bsfs-extract mkfs.bsfs
+	rm -rf bin
 
-mkfs.bsfs: mkfs.bsfs.c
+bin/mkfs.bsfs: mkfs.bsfs.c
+	@mkdir -p $(dir $@)
 	$(C) $(CFLAGS) $< -o $@
 
-bsfs-populate: bsfs-populate.c bsfs.c
+bin/bsfs-populate: bsfs-populate.c bsfs.c
 	$(C) $(CFLAGS) $^ -o $@
 
-bsfs-extract: bsfs-extract.c bsfs.c
+bin/bsfs-extract: bsfs-extract.c bsfs.c
 	$(C) $(CFLAGS) $^ -o $@
