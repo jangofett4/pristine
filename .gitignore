@@ -1,5 +1,6 @@
 bin/**/*
 .vscode
+.zed
 .gdb_history
 tools/bsfs/spec
 tools/bsfs/root

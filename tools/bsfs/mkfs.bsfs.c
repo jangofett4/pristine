@@ -121,55 +121,72 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    uint32_t total_blocks        = imagesize / final_blocksize;
-    uint32_t inode_count         = total_blocks / 4;
+    uint32_t total_blocks            = imagesize / final_blocksize;
+    uint32_t total_megablocks        = DIV_CEIL(total_blocks, final_blocksize * 8);
+    uint32_t inode_count             = total_blocks / 4;
 
-    uint32_t block_bitmap_bytes  = DIV_CEIL(total_blocks, 8);
-    uint32_t block_bitmap_blocks = DIV_CEIL(block_bitmap_bytes, final_blocksize);
+    uint32_t block_bitmap_bytes      = DIV_CEIL(total_blocks, 8);
+    uint32_t block_bitmap_blocks     = DIV_CEIL(block_bitmap_bytes, final_blocksize);
 
-    uint32_t inode_bitmap_bytes  = DIV_CEIL(inode_count, 8);
-    uint32_t inode_bitmap_blocks = DIV_CEIL(inode_bitmap_bytes, final_blocksize);
+    uint32_t megablock_bitmap_bytes  = DIV_CEIL(total_megablocks, 8);
+    uint32_t megablock_bitmap_blocks = DIV_CEIL(megablock_bitmap_bytes, final_blocksize);
 
-    uint32_t inode_table_bytes   = inode_count * sizeof(bsfs_inode_t);
-    uint32_t inode_table_blocks  = DIV_CEIL(inode_table_bytes, final_blocksize);
+    uint32_t inode_bitmap_bytes      = DIV_CEIL(inode_count, 8);
+    uint32_t inode_bitmap_blocks     = DIV_CEIL(inode_bitmap_bytes, final_blocksize);
 
-    uint32_t reserved_blocks     = final_offset + 1;
-    uint32_t block_bitmap_start  = reserved_blocks;
-    uint32_t inode_bitmap_start  = block_bitmap_start + block_bitmap_blocks;
-    uint32_t inode_table_start   = inode_bitmap_start + inode_bitmap_blocks;
-    uint32_t data_start          = inode_table_start  + inode_table_blocks;
-    uint32_t metadata_blocks     = reserved_blocks + block_bitmap_blocks + inode_bitmap_blocks + inode_table_blocks;
+    uint32_t inode_table_bytes       = inode_count * sizeof(bsfs_inode_t);
+    uint32_t inode_table_blocks      = DIV_CEIL(inode_table_bytes, final_blocksize);
+
+    uint32_t reserved_blocks        = final_offset + 1;
+    uint32_t block_bitmap_start     = reserved_blocks;
+    uint32_t megablock_bitmap_start = block_bitmap_start + block_bitmap_blocks;
+    uint32_t inode_bitmap_start     = megablock_bitmap_start + megablock_bitmap_blocks;
+    uint32_t inode_table_start      = inode_bitmap_start + inode_bitmap_blocks;
+    uint32_t data_start             = inode_table_start  + inode_table_blocks;
+    uint32_t metadata_blocks        = reserved_blocks + block_bitmap_blocks + megablock_bitmap_blocks + inode_bitmap_blocks + inode_table_blocks;
 
     printf("%s will generate a filesystem image with:\n", argv[0]);
-    printf(" Size:         %.2f KiB (%.2f MiB, %.2f GiB)\n", imagesize / 1024.f, imagesize / 1024.f / 1024, imagesize / 1024.f / 1024 / 1024);
-    printf(" Label:        %s\n", final_label);
-    printf(" Output image: %s\n", image_file);
-    printf(" Block size:   %lu\n", final_blocksize);
-    printf(" Image offset: 0x%04lx\n", bsfs_base);
-    printf(" Total blocks: %u\n", total_blocks);
-    printf(" Total inodes: %u\n", inode_count);
+    printf(" Size:             %.2f KiB (%.2f MiB, %.2f GiB)\n", imagesize / 1024.f, imagesize / 1024.f / 1024, imagesize / 1024.f / 1024 / 1024);
+    printf(" Label:            %s\n", final_label);
+    printf(" Output image:     %s\n", image_file);
+    printf(" Block bitmap:     %u blocks\n", block_bitmap_blocks);
+    printf(" Megablock bitmap: %u blocks\n", megablock_bitmap_blocks);
+    printf(" Megablock bitmap: %u bits\n", total_megablocks);
+    printf(" Inode bitmap:     %u blocks\n", inode_bitmap_blocks);
+    printf(" Inode table:      %u blocks\n", inode_table_blocks);
+    printf(" Block size:       %lu\n", final_blocksize);
+    printf(" Image offset:     0x%04lx\n", bsfs_base);
+    printf(" Total blocks:     %u\n", total_blocks);
+    printf(" Total inodes:     %u\n", inode_count);
+
+    if (sizeof(bsfs_header_t) != 512) {
+        BSFS_PANIC("mkfs.bsfs: sizeof(bsfs_header_t), expected 512 got %lu", sizeof(bsfs_header_t));
+    }
 
     bsfs_header_t header = {
-        .bootjmp             = { 0xEB, offsetof(bsfs_header_t, bootcode) - 2, 0x90 },
-        .magic               = BSFS_MAGIC,
-        .version             = BSFS_VERSION,
-        .block_size          = final_blocksize,
-        .total_blocks        = total_blocks,
-        .inode_count         = inode_count,
-        .free_blocks         = total_blocks - metadata_blocks,
-        .free_inodes         = inode_count,
-        .block_bitmap_start  = block_bitmap_start,
-        .block_bitmap_blocks = block_bitmap_blocks,
-        .inode_bitmap_start  = inode_bitmap_start,
-        .inode_bitmap_blocks = inode_bitmap_blocks,
-        .inode_table_start   = inode_table_start,
-        .inode_table_blocks  = inode_table_blocks,
-        .data_start          = data_start,
-        .root_inode          = 0,
-        .partition_lba       = final_offset,
-        .label               = {0},
-        .bootcode            = {0},
-        .bootcode_magic      = { 0x55, 0xAA }
+        .bootjmp                 = { 0xEB, offsetof(bsfs_header_t, bootcode) - 2, 0x90 },
+        .magic                   = BSFS_MAGIC,
+        .version                 = BSFS_VERSION,
+        .block_size              = final_blocksize,
+        .total_blocks            = total_blocks,
+        .inode_count             = inode_count,
+        .free_blocks             = total_blocks - metadata_blocks,
+        .free_inodes             = inode_count,
+        .block_bitmap_start      = block_bitmap_start,
+        .block_bitmap_blocks     = block_bitmap_blocks,
+        .megablock_bitmap_start  = megablock_bitmap_start,
+        .megablock_bitmap_blocks = megablock_bitmap_blocks,
+        .megablock_bitmap_size   = megablock_bitmap_bytes,
+        .inode_bitmap_start      = inode_bitmap_start,
+        .inode_bitmap_blocks     = inode_bitmap_blocks,
+        .inode_table_start       = inode_table_start,
+        .inode_table_blocks      = inode_table_blocks,
+        .data_start              = data_start,
+        .root_inode              = 0,
+        .partition_lba           = final_offset,
+        .label                   = {0},
+        .bootcode                = {0},
+        .bootcode_magic          = { 0x55, 0xAA }
     };
 
     uint8_t *zeros;
@@ -188,12 +205,17 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < header.block_bitmap_blocks; i++) {
         fwrite(zeros, 1, final_blocksize, image);
     }
-    
+
+    fseeko(image, final_blocksize * header.megablock_bitmap_start, SEEK_SET);
+    for (size_t i = 0; i < header.megablock_bitmap_blocks; i++) {
+        fwrite(zeros, 1, final_blocksize, image);
+    }
+
     fseeko(image, final_blocksize * header.inode_bitmap_start, SEEK_SET);
     for (size_t i = 0; i < header.inode_bitmap_blocks; i++) {
         fwrite(zeros, 1, final_blocksize, image);
     }
-    
+
     fseeko(image, final_blocksize * header.inode_table_start, SEEK_SET);
     for (size_t i = 0; i < header.inode_table_blocks; i++) {
         fwrite(zeros, 1, final_blocksize, image);

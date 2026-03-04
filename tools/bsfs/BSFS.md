@@ -67,6 +67,9 @@ BSFS supports two layouts depending on whether the filesystem starts at sector 0
 | free_inodes | uint32_t | Number of free inodes |
 | block_bitmap_start | uint32_t | Block bitmap start, in blocks |
 | block_bitmap_blocks | uint32_t | Block bitmap size, in blocks |
+| megablock_bitmap_start | uint32_t | Megablock bitmap start, in blocks |
+| megablock_bitmap_blocks | uint32_t | Megablock bitmap size, in blocks |
+| megablock_bitmap_size | uint32_t | Megablock bitmap size, in bytes |
 | inode_bitmap_start | uint32_t | Inode bitmap start, in blocks |
 | inode_bitmap_blocks | uint32_t | Inode bitmap size, in blocks |
 | inode_table_start | uint32_t | Inode table start, in blocks |
@@ -75,7 +78,7 @@ BSFS supports two layouts depending on whether the filesystem starts at sector 0
 | root_inode | uint32_t | Index of root directory inode |
 | partition_lba | uint64_t | Partition offset in blocks |
 | label | uint8_t[32] | Volume label, null terminated |
-| bootcode | uint8_t[415] | Stage 1 bootcode (offset=0 layout only) |
+| bootcode | uint8_t[395] | Stage 1 bootcode (offset=0 layout only) |
 | bootcode_magic | uint8_t[2] | Boot signature `0x55, 0xAA` |
 
 ### `bsfs_inode_t` (128 bytes)
@@ -130,6 +133,6 @@ BSFS supports two layouts depending on whether the filesystem starts at sector 0
 
 **`mkfs.bsfs`** — formats a raw disk image with a BSFS filesystem. Writes the header and all metadata regions. Supports configurable block size and partition offset.
 
-**`bsfs-populate`** — walks a host directory tree and writes its contents into an existing BSFS image, allocating inodes, bitmaps and data blocks as needed.
+**`bsfs-populate`** — walks a host directory tree and writes its contents into an existing BSFS image, allocating inodes, bitmaps and data blocks as needed. *(rewrite in progress)*
 
 **`bsfs-extract`** — reads an existing BSFS image and extracts its contents to a host directory. *(in progress)*

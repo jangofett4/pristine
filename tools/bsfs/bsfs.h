@@ -10,7 +10,7 @@
 #include <stdlib.h>
 
 #define BSFS_MAGIC      0x42534653
-#define BSFS_VERSION    0x01010100
+#define BSFS_VERSION    0x01020100
 
 #define BSFS_MAX_BLOCKS     1073741824
 #define BSFS_MAX_MEGABLOCKS 1048576
@@ -28,6 +28,9 @@ typedef struct {
     uint32_t free_inodes;
     uint32_t block_bitmap_start;
     uint32_t block_bitmap_blocks;
+    uint32_t megablock_bitmap_start;
+    uint32_t megablock_bitmap_blocks;
+    uint32_t megablock_bitmap_size;
     uint32_t inode_bitmap_start;
     uint32_t inode_bitmap_blocks;
     uint32_t inode_table_start;
@@ -36,7 +39,7 @@ typedef struct {
     uint32_t root_inode;
     uint64_t partition_lba;
     uint8_t  label[32];
-    uint8_t  bootcode[407];
+    uint8_t  bootcode[395];
     uint8_t  bootcode_magic[2];
 } __attribute__((packed)) bsfs_header_t;
 
@@ -80,23 +83,20 @@ typedef struct {
 void bsfs_bitmap_set(uint8_t *bitmap, const uint32_t index);
 void bsfs_bitmap_clear(uint8_t *bitmap, const uint32_t index);
 
-void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index);
-void bsfs_bitmap_clear_contiguous(uint8_t *bitmap, const uint64_t area_count, const uint64_t index);
-
 bool bsfs_bitmap_test(uint8_t *bitmap, const uint32_t index);
 
 uint32_t bsfs_bitmap_find(uint8_t *bitmap, const uint32_t bit_count);
-uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count, const uint32_t bit_count);
 
-uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap);
-uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap);
+// Searches and allocates a block based on header given.
+// Requires block and megablock bitmap to be passed.
+// Panics when no free block is found.
+uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
 
 uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap);
 
-void bsfs_trim_inode(bsfs_inode_t *inode);
 
 // "allocates" a bsfs_dirent_t and returns an offset in the image
-uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap);
+uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
 
 #define BSFS_PANIC(fmt, ...) do { \
     fflush(stderr);\
@@ -104,3 +104,9 @@ uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *
     fprintf(stderr, "\nPANIC %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
     exit(1); \
 } while(0);
+
+// void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index);
+// void bsfs_bitmap_clear_contiguous(uint8_t *bitmap, const uint64_t area_count, const uint64_t index);
+// uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count, const uint32_t bit_count);
+// uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap);
+// void bsfs_trim_inode(bsfs_inode_t *inode);
