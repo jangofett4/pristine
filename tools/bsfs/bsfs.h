@@ -12,10 +12,19 @@
 #define BSFS_MAGIC      0x42534653
 #define BSFS_VERSION    0x01020100
 
-#define BSFS_MAX_BLOCKS     1073741824
-#define BSFS_MAX_MEGABLOCKS 1048576
+#define BSFS_MAX_BLOCKS       1073741824
+#define BSFS_MAX_MEGABLOCKS   1048576
+#define BSFS_MAX_DIRECTBLOCKS 10
+#define BSFS_MAX_DIRENTNAME   124
+
+_Static_assert(BSFS_MAX_DIRECTBLOCKS <= 35, "bsfs: too BSFS_MAX_DIRECTBLOCKS is too high, padding bytes count underflow!");
+_Static_assert(BSFS_MAX_DIRENTNAME == 124, "bsfs: BSFS_MAX_DIRENTNAME is not 124"); // TODO: this is very limiting
 
 #define BSFS_MAX_PATH       4096
+
+#ifndef BSFS_DIV_CEIL
+#define BSFS_DIV_CEIL(a, b) (((a) + (b) - 1) / (b))
+#endif
 
 typedef struct {
     uint8_t  bootjmp[3];
@@ -62,22 +71,22 @@ typedef struct {
     uint16_t permissions;
     uint32_t uid;
     uint32_t gid;
-    uint64_t size;              // Size in bytes
-    uint32_t blocks;            // Total allocated blocks
-    uint64_t created;           // Creation date, unix timestamp
-    uint64_t modified;          // Modification date, unix timestamp
-    uint64_t accessed;          // Access date, unix timestamp
+    uint64_t size;                                 // Size in bytes
+    uint32_t blocks;                               // Total allocated blocks
+    uint64_t created;                              // Creation date, unix timestamp
+    uint64_t modified;                             // Modification date, unix timestamp
+    uint64_t accessed;                             // Access date, unix timestamp
     uint32_t link_count;
-    uint32_t blocks_direct[10]; // 40k
-    uint32_t blocks_l1indirect; // 4MiB
-    uint32_t blocks_l2indirect; // 4GiB
-    uint32_t blocks_l3indirect; // 4TiB
-    uint8_t  reserved[25];
+    uint32_t blocks_direct[BSFS_MAX_DIRECTBLOCKS]; // 40k with 10 blocks
+    uint32_t blocks_l1indirect;                    // 4MiB
+    uint32_t blocks_l2indirect;                    // 4GiB
+    uint32_t blocks_l3indirect;                    // 4TiB
+    uint8_t  reserved[35 - BSFS_MAX_DIRECTBLOCKS];
 } __attribute__((packed)) bsfs_inode_t;
 
 typedef struct {
     uint32_t inode;
-    char     name[124];
+    char     name[BSFS_MAX_DIRENTNAME];
 } __attribute__((packed)) bsfs_dirent_t;
 
 void bsfs_bitmap_set(uint8_t *bitmap, const uint32_t index);
@@ -94,8 +103,7 @@ uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t 
 
 uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap);
 
-
-// "allocates" a bsfs_dirent_t and returns an offset in the image
+// "allocates" a bsfs_dirent_t
 uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
 
 #define BSFS_PANIC(fmt, ...) do { \
@@ -110,3 +118,7 @@ uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *
 // uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count, const uint32_t bit_count);
 // uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap);
 // void bsfs_trim_inode(bsfs_inode_t *inode);
+
+#ifdef BSFS_DIV_CEIL
+#undef BSFS_DIV_CEIL
+#endif

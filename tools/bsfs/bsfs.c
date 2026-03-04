@@ -108,40 +108,30 @@ uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap) {
     return free_inode;
 }
 
-// TODO: We can add a new "empty dirent slot" to bsfs_inode_t to keep track or next empty dirent in inode to save some time
-
-uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap) {
+uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap)
+{
     #ifdef BSFS_DEBUG
     if (inode->type != BSFS_INODE_TYPE_DIRECTORY) {
-        BSFS_PANIC("bsfs_alloc_direct: called with non-directory inode.");
+        BSFS_PANIC("bsfs_alloc_dirent: called with non-directory inode.");
         return UINT64_MAX;
     }
     #endif
-    // This function should return an offset on the image so that the caller can't fail
 
-    uint64_t used_dirents      = inode->size / sizeof(bsfs_dirent_t);
-    uint64_t dirents_per_block = header->block_size / sizeof(bsfs_dirent_t);
-    uint64_t current_block     = used_dirents / dirents_per_block;
-    uint32_t slot_in_block     = used_dirents % dirents_per_block;
-
-    if (inode->blocks == 0) {
-        // first dirent in directory
-        uint32_t block_idx = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
-        inode->blocks_direct[0] = block_idx;
-        inode->blocks++;
-    } else if (slot_in_block == 0) {
-        // current block is full, allocate a new one
-        if (inode->blocks == (sizeof(inode->blocks_direct) / sizeof(inode->blocks_direct[0]))) {
-            BSFS_PANIC("bsfs_alloc_dirent: Inode contains more than 10 blocks, unimplemented.");
-            return UINT64_MAX;
-        }
-        uint32_t block_idx = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
-        inode->blocks_direct[inode->blocks] = block_idx;
+    // search for empty dirent in inode
+    uint32_t new_dirent_local_block = inode->size / header->block_size; // Nth direct block
+    if (new_dirent_local_block >= BSFS_MAX_DIRECTBLOCKS) {
+        BSFS_PANIC("bsfs_alloc_dirent: new dirent exceeds maximum direct blocks of inode.");
+        return UINT64_MAX;
+    }
+    if (inode->blocks_direct[new_dirent_local_block] == 0) {
+        inode->blocks_direct[new_dirent_local_block] = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
         inode->blocks++;
     }
-
-    return (header->block_size * inode->blocks_direct[current_block]) + (slot_in_block * sizeof(bsfs_dirent_t));
+    uint32_t new_dirent_offset = inode->size % header->block_size; // Byte offset in the determined block
+    return header->block_size * inode->blocks_direct[new_dirent_local_block] + new_dirent_offset;
 }
+
+// TODO: We can add a new "empty dirent slot" to bsfs_inode_t to keep track or next empty dirent in inode to save some time
 
 void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index) {
     BSFS_PANIC("bsfs_bitmap_set_contiguous: unimplemented");
