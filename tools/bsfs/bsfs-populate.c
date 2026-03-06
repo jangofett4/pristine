@@ -315,10 +315,109 @@ void bsfs_populate_dir(const char *path, FILE *image_file, bsfs_header_t *header
             };
             snprintf(guest_file_dirent.name, BSFS_MAX_DIRENTNAME, "%s", current_host_dirent->d_name);
 
+            FILE *host_file = fopen(subpath, "rb");
+            if (!host_file) {
+                closedir(current_dir);
+                BSFS_PANIC("bsfs_populate_dir: unable to open host file '%s'", subpath);
+            }
+            fseeko(host_file, 0, SEEK_END);
+            uint64_t host_file_size = ftello(host_file);
+            fseeko(host_file, 0, SEEK_SET);
+
+            uint32_t guest_file_total_blocks_required = DIV_CEIL(host_file_size, header->block_size);
+
+            guest_file_inode->type = BSFS_INODE_TYPE_FILE;
+            guest_file_inode->permissions = BSFS_INODE_PERM_READ | BSFS_INODE_PERM_WRITE;
+            guest_file_inode->uid = 0;
+            guest_file_inode->gid = 0;
+            guest_file_inode->size = 0;
+            guest_file_inode->created = populate_time;
+            guest_file_inode->modified = populate_time;
+            guest_file_inode->accessed = populate_time;
+            guest_file_inode->link_count = 0;
+
+            uint32_t l1_capacity      = header->block_size / sizeof(uint32_t);                                                // 1024
+            uint32_t l1indirect_start = sizeof(guest_file_inode->blocks_direct) / sizeof(guest_file_inode->blocks_direct[0]); // 10
+            uint32_t l2indirect_start = l1indirect_start + l1_capacity;                                                       // 10 + 1024 = 1034
+            uint32_t l3indirect_start = l2indirect_start + l1_capacity * l1_capacity;                                         // 1034 + (1024 * 1024) = 1049610
+
+            bool needs_l1indirect = guest_file_total_blocks_required >= l1indirect_start;
+            bool needs_l2indirect = guest_file_total_blocks_required >= l2indirect_start;
+            bool needs_l3indirect = guest_file_total_blocks_required >= l3indirect_start;
+
+            printf("Writing file '%s' (Inode %u, %u blocks, L1: %i, L2: %i, L3: %i)...",
+                subpath,
+                guest_file_inode_idx,
+                guest_file_total_blocks_required,
+                needs_l1indirect,
+                needs_l2indirect,
+                needs_l3indirect
+            );
+
+            uint8_t *bytes = malloc(header->block_size);
+            size_t read = 0;
+            uint32_t guest_file_block_idx;
+            uint32_t guest_file_current_block = 0;
+            uint32_t *l1indirect_table_tmp = NULL; uint32_t l1indirect_table_idx;
+            uint32_t *l2indirect_table_tmp = NULL; uint32_t l2indirect_table_idx;
+            uint32_t *l3indirect_table_tmp = NULL; uint32_t l3indirect_table_idx;
+
+            while ((read = fread(bytes, 1, header->block_size, host_file))) {
+                // TODO: this could be sped up massively with bsfs_alloc_block_contiguous
+                guest_file_block_idx = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
+                fseeko(image_file, header->block_size * guest_file_block_idx, SEEK_SET);
+
+                if (guest_file_current_block < l1indirect_start) {
+                    guest_file_inode->blocks_direct[guest_file_current_block] = guest_file_block_idx;
+                    fseeko(image_file, header->block_size * guest_file_block_idx, SEEK_SET);
+                    fwrite(bytes, 1, read, image_file);
+                } else if (guest_file_current_block < l2indirect_start) {
+                    uint32_t l1slot = guest_file_current_block - l1indirect_start;
+                    if (l1slot == 0) {
+                        l1indirect_table_idx = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
+                        guest_file_inode->blocks_l1indirect = l1indirect_table_idx;
+                        l1indirect_table_tmp = calloc(1, header->block_size);
+                    }
+                    l1indirect_table_tmp[l1slot] = guest_file_block_idx;
+                    fseeko(image_file, header->block_size * guest_file_block_idx, SEEK_SET);
+                    fwrite(bytes, 1, read, image_file);
+                } else if (guest_file_current_block < l3indirect_start) {
+                    fclose(image_file);
+                    fclose(host_file);
+                    closedir(current_dir);
+                    free(bytes);
+                    BSFS_PANIC("populate_dir: file '%s' with size %.2f MiB exceeds blocks_l1indirect, blocks_l2indirect is unimplemented", subpath, host_file_size / 1024.f / 1024);
+                } else {
+                    fclose(image_file);
+                    fclose(host_file);
+                    closedir(current_dir);
+                    free(bytes);
+                    BSFS_PANIC("populate_dir: file '%s' with size %.2f MiB exceeds blocks_l2indirect, blocks_l3indirect is unimplemented", subpath, host_file_size / 1024.f / 1024);
+                }
+
+                guest_file_inode->blocks++;
+                guest_file_inode->size += read;
+                guest_file_current_block++;
+            }
+            printf("\n");
+
+            if (l1indirect_table_tmp) {
+                fseeko(image_file, header->block_size * l1indirect_table_idx, SEEK_SET);
+                fwrite(l1indirect_table_tmp, sizeof(uint32_t), l1_capacity, image_file);
+                free(l1indirect_table_tmp);
+                l1indirect_table_tmp = NULL;
+            }
+
             fseeko(image_file, guest_file_dirent_offset, SEEK_SET);
             fwrite(&guest_file_dirent, sizeof(bsfs_dirent_t), 1, image_file);
+        } else if (current_host_dirent->d_type == DT_UNKNOWN) {
+            closedir(current_dir);
+            BSFS_PANIC("bsfs_populate_dir: host returned DT_UNKNOWN for dirent.d_type, stat() based navigation is unimplemented");
         } else {
+            closedir(current_dir);
             BSFS_PANIC("bsfs_populate_dir: unhandled dirent type (%i)", current_host_dirent->d_type);
         }
     }
+
+    closedir(current_dir);
 }

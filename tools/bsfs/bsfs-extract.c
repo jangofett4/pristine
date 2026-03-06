@@ -13,12 +13,19 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <limits.h>
 
 #if defined(linux) || defined(__linux)
 #include <sys/mman.h>
 #endif
 
 #include "bsfs.h"
+
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof(x[0]))
+
+void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, bsfs_inode_t *inode_table);
+void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, bsfs_header_t *header, bsfs_inode_t *inode);
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -194,15 +201,125 @@ int main(int argc, char **argv) {
     fseeko(image, root_inode.blocks_direct[0] * header.block_size, SEEK_SET);
     fread(root_dirent, sizeof(bsfs_dirent_t), root_inode.size / sizeof(bsfs_dirent_t), image);
 
-    printf("root_inode size: %lu\n", root_inode.size);
-    for (size_t i = 0; i < root_inode.size / sizeof(bsfs_dirent_t); i++) {
-        bsfs_inode_t inode = inode_table[root_dirent[i].inode];
-        printf("Dirent: %s, Inode: %u, Size: %lu, (%.2f KiB, %.2f MiB)\n", root_dirent[i].name, root_dirent[i].inode, inode.size, inode.size / 1024.f, inode.size / 1024.f / 1024);
-    }
+    mkdir(root_path, 0755);
+    bsfs_extract_dir(root_path, image, &header, &root_inode, header.root_inode, inode_table);
 
     free(block_bitmap);
     free(inode_bitmap);
     free(inode_table);
 
     return 0;
+}
+
+void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, bsfs_inode_t *inode_table) {
+    if (current_guest_inode->type != BSFS_INODE_TYPE_DIRECTORY) {
+        BSFS_PANIC("bsfs_extract_dir: inode is not a directory (%u)", current_guest_inode_idx);
+    }
+
+    bsfs_dirent_t *current_block_dirents = (bsfs_dirent_t*)malloc(header->block_size);
+    // TODO: for now we are only handling blocks_direct
+    for (size_t i = 0; i < sizeof(current_guest_inode->blocks_direct) / sizeof(current_guest_inode->blocks_direct[0]); i++) {
+        uint32_t current_block = current_guest_inode->blocks_direct[i];
+        if (current_block == 0) {
+            continue; // No more blocks
+        }
+        printf("Dirent block: %u\n", current_block);
+        fseeko(image_file, header->block_size * current_block, SEEK_SET);
+        fread(current_block_dirents, sizeof(bsfs_dirent_t), header->block_size / sizeof(bsfs_dirent_t), image_file);
+        for (size_t d = 0; d < header->block_size / sizeof(bsfs_dirent_t); d++) {
+            bsfs_dirent_t *current_dirent = &current_block_dirents[d];
+            if (current_block_dirents[d].inode == BSFS_INODE_TYPE_FREE) {
+                continue;
+            }
+            char subpath[PATH_MAX];
+            snprintf(subpath, PATH_MAX, "%s/%s", path, current_dirent->name);
+            printf("> Dirent: %zu, %s\n", d, current_dirent->name);
+            bsfs_inode_t subinode = inode_table[current_dirent->inode];
+            if (subinode.type == BSFS_INODE_TYPE_FREE) {
+                continue;
+            } else if (subinode.type == BSFS_INODE_TYPE_FILE) {
+                printf(" - Inode: File, %.02f KiB\n", subinode.size / 1024.f);
+                FILE *subfile = fopen(subpath, "wb+");
+                if (!subfile) {
+                    BSFS_PANIC("bsfs_extract_dir: unable to create file '%s' in host", subpath);
+                }
+                bsfs_write_inode_to_file(image_file, subfile, header, &subinode);
+                fclose(subfile);
+            } else if (subinode.type == BSFS_INODE_TYPE_DIRECTORY) {
+                printf(" - Inode: Directory, %lu items\n", subinode.size / sizeof(bsfs_dirent_t));
+                mkdir(subpath, 0755);
+                bsfs_extract_dir(subpath, image_file, header, &subinode, current_dirent->inode, inode_table);
+            } else if (subinode.type == BSFS_INODE_TYPE_SYMLINK) {
+                printf(" - Inode: Symlink\n");
+            } else {
+                BSFS_PANIC("bsfs_extract_dir: filesystem corruption! Unknown inode type '%i'", subinode.type);
+            }
+        }
+    }
+
+    free(current_block_dirents);
+}
+
+void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, bsfs_header_t *header, bsfs_inode_t *inode) {
+    if (inode->type != BSFS_INODE_TYPE_FILE) {
+        BSFS_PANIC("bsfs_write_inode_to_file: called with non-file inode");
+    }
+    
+    fseeko(host_file, 0, SEEK_SET);
+    uint8_t *data = malloc(header->block_size);
+    int64_t remaining = inode->size;
+    bool file_end = false;
+    for (size_t i = 0; i < ARRAY_LENGTH(inode->blocks_direct); i++) {
+        if (inode->blocks_direct[i] == 0) {
+            continue;
+        }
+        printf("Reading inode block 0x%04x, ", inode->blocks_direct[i]);
+        fseeko(image_file, header->block_size * inode->blocks_direct[i], SEEK_SET);
+        uint32_t read = fread(data, 1, header->block_size, image_file);
+        printf("read %u from image bytes, remaining %lu\n", read, remaining);
+        if (read < header->block_size) {
+            file_end = true;
+            fwrite(data, 1, read, host_file);
+            break;
+        } else {
+            uint32_t writecnt = remaining < header->block_size ? remaining : header->block_size;
+            fwrite(data, 1, writecnt, host_file);
+            remaining -= header->block_size;
+        }
+    }
+    
+    if (file_end) {
+        free(data);
+        return;
+    }
+
+    if (inode->blocks_l1indirect != 0) {
+        printf("l1indirect exists\n");
+        uint32_t *l1indirect_table_tmp = malloc(header->block_size);
+        fseeko(image_file, header->block_size * inode->blocks_l1indirect, SEEK_SET);
+        fread(l1indirect_table_tmp, sizeof(uint32_t), header->block_size / sizeof(uint32_t), image_file);
+        for (size_t i = 0; i < header->block_size / sizeof(uint32_t) && remaining > 0; i++) {
+            uint32_t current_block = l1indirect_table_tmp[i];
+            if (!current_block) continue;
+            printf("l1 block: %u\n", current_block);
+            fseeko(image_file, header->block_size * current_block, SEEK_SET);
+            uint32_t read = fread(data, 1, header->block_size, image_file);
+            if (read < header->block_size) {
+                file_end = true;
+                fwrite(data, 1, read, host_file);
+                break;
+            } else {
+                uint32_t writecnt = remaining < header->block_size ? remaining : header->block_size;
+                fwrite(data, 1, writecnt, host_file);
+                printf("written %u bytes\n", writecnt);
+                remaining -= header->block_size;
+            }
+        }
+        free(l1indirect_table_tmp);
+    }
+
+    if (file_end) {
+        free(data);
+        return;
+    }
 }
