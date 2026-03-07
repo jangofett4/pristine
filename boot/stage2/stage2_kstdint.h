@@ -26,3 +26,7 @@ typedef __UINT32_TYPE__ uint32_t;
 typedef __UINT64_TYPE__ uint64_t;
 
 typedef uint32_t size_t;
+
+#define UINT32_MAX __UINT32_MAX__
+#define UINT64_MAX __UINT64_MAX__
+#define UINT8_MAX  __UINT8_MAX__

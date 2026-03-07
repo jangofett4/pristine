@@ -6,9 +6,10 @@
 
 #include "bsfs.h"
 
-#include <stdbool.h>
+#ifdef BSFS_STDLIB_EXISTS
 #include <stdint.h>
 #include <stdio.h>
+#endif
 
 inline void bsfs_bitmap_set(uint8_t *bitmap, const uint32_t index) {
 #ifdef BSFS_DEBUG
@@ -30,7 +31,7 @@ inline void bsfs_bitmap_clear(uint8_t *bitmap, const uint32_t index) {
     bitmap[slot] &= ~(1 << (index % 8));
 }
 
-inline bool bsfs_bitmap_test(uint8_t *bitmap, const uint32_t index) {
+inline int bsfs_bitmap_test(uint8_t *bitmap, const uint32_t index) {
     const uint32_t slot = index / 8;
     return bitmap[slot] & (1 << (index % 8));
 }
@@ -84,9 +85,9 @@ uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t 
 
     bsfs_bitmap_set(block_bitmap, free_block);
     uint8_t *mb_bitmap_slice = block_bitmap + free_megablock * header->block_size;
-    bool megablock_full = true;
+    int megablock_full = 1;
     for (size_t i = 0; i < header->block_size; i++) {
-        if (mb_bitmap_slice[i] != UINT8_MAX) { megablock_full = false; break; }
+        if (mb_bitmap_slice[i] != UINT8_MAX) { megablock_full = 0; break; }
     }
     if (megablock_full)
         bsfs_bitmap_set(megablock_bitmap, free_megablock);

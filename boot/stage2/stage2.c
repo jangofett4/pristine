@@ -5,6 +5,7 @@
  */
 
 #include "stage2_common.h"
+#include "stage2_string.h"
 #include "stage2_memory.h"
 #include "stage2_video.h"
 #include "stage2_serial.h"
@@ -14,12 +15,14 @@
 #include "stage2_disk.h"
 #include "stage2_ata_pio.h"
 #include "stage2_fat16.h"
+#include "bsfs.h"
 
 #include "printf.h"
 
 static idt32_entry_t idt[IDT32_SIZE];
 
 static uint8_t disk_buf[DISK_READ_MAX_SECTORS * 512];
+static uint8_t block_buf[BSFS_BLOCKSIZE];
 
 static video_t video;
 static serial_t serial;
@@ -99,9 +102,95 @@ void stage2_boot(void) {
 
     disk_ops_vtable_t disk_ops = ata_pio_get_disk_ops();
 
-    fat16_header_t header = fat16_init(&disk_ops, 64);
-    fat16_file_t kernel_file = fat16_find_root_file("KERNEL  ", "ELF");
-    ASSERT(!kernel_file.eof, "Unable to find KERNEL.ELF on the root directory of the filesystem.");
+    const uint32_t bsfs_offset = 8 * 4096;
+
+    disk_ops.read(bsfs_offset / 512, 1, disk_buf);
+    bsfs_header_t header;
+    memcpy(&header, disk_buf, sizeof(bsfs_header_t));
+
+    printf("BSFS:\n");
+    printf(" Label:             %s\n", header.label);
+    printf(" Version:           %i.%i.%i.%i\n", (header.version >> 24) & 0xff, (header.version >> 16) & 0xff, (header.version >> 8) & 0xff, header.version & 0xff);
+    printf(" Block Size:        %u\n", header.block_size);
+    printf(" Total Blocks:      %u\n", header.total_blocks);
+    printf(" Total Inodes:      %u\n", header.inode_count);
+    printf(" Free Blocks:       %u\n", header.free_blocks);
+    printf(" Root Inode:        0x%04x\n", header.root_inode);
+    printf(" Inode Table Start: 0x%04x\n", header.inode_table_start);
+
+    if (header.block_size != BSFS_BLOCKSIZE) {
+        PANIC("bsfs: image has %u byte blocks, cannot process", header.block_size);
+    }
+
+    uint32_t inode_table_start = header.inode_table_start;
+    uint64_t root_inode_byte_offset = (header.block_size * inode_table_start) + (header.root_inode * sizeof(bsfs_inode_t));
+    uint32_t root_inode_sector = root_inode_byte_offset / 512;
+
+    disk_ops.read(root_inode_sector, 1, disk_buf);
+    bsfs_inode_t root_inode;
+    memcpy(&root_inode, disk_buf + sizeof(bsfs_inode_t), sizeof(bsfs_inode_t));
+
+    if (root_inode.type != BSFS_INODE_TYPE_DIRECTORY) {
+        PANIC("bsfs: root inode is not a directory");
+    }
+
+    printf("Root Inode:\n");
+    printf(" Size:              %u dirents\n", root_inode.size / sizeof(bsfs_dirent_t));
+    printf(" Blocks:            %u\n", root_inode.blocks);
+
+    if (root_inode.size == 0) {
+        PANIC("bsfs: root inode has a size of 0");
+    }
+
+    uint32_t kernel_inode_idx = 0;
+    for (size_t i = 0; i < sizeof(root_inode.blocks_direct) / sizeof(root_inode.blocks_direct[0]); i++) {
+        uint32_t current_block = root_inode.blocks_direct[i];
+        if (current_block == 0) {
+            printf("\n");
+            continue;
+        }
+        printf(" Block %u: %u, navigating...\n", i, current_block);
+        disk_ops.read(header.block_size * current_block / 512, 8, block_buf);
+        bsfs_dirent_t *dirents = &block_buf;
+        for (size_t i = 0; i < header.block_size / sizeof(bsfs_dirent_t); i++) {
+            bsfs_dirent_t *dirent = &dirents[i];
+            if (dirent->inode == 0) continue;
+            printf(" > Dirent: %s [%u]\n", dirent->name, dirent->inode);
+            if (strcmp("kernel.elf", dirent->name) == 0) {
+                kernel_inode_idx = dirent->inode;
+                break;
+            }
+        }
+        if (kernel_inode_idx)
+            break;
+    }
+
+    if (!kernel_inode_idx) {
+        PANIC("pristine: kernel.elf not found");
+    }
+
+    printf("kernel.elf found, Inode %u\n", kernel_inode_idx);
+    uint64_t kernel_inode_byte_offset = (header.block_size * inode_table_start) + (kernel_inode_idx * sizeof(bsfs_inode_t));
+    uint32_t kernel_inode_sector = kernel_inode_byte_offset / 512;
+    uint32_t kernel_inode_buf_offset = kernel_inode_byte_offset % 512;
+    disk_ops.read(kernel_inode_sector, 1, disk_buf);
+    bsfs_inode_t kernel_inode;
+    memcpy(&kernel_inode, disk_buf + kernel_inode_buf_offset, sizeof(bsfs_inode_t));
+
+    if (kernel_inode.type != BSFS_INODE_TYPE_FILE) {
+        PANIC("pristine: kernel.elf is not a file");
+    }
+
+    printf("kernel.elf:\n");
+    printf(" Size:   %lu bytes\n", kernel_inode.size);
+    printf(" Blocks: %u\n", kernel_inode.blocks);
+
+    for (size_t i = 0; i < sizeof(kernel_inode.blocks_direct) / sizeof(kernel_inode.blocks_direct[0]); i++) {
+        uint32_t current_block = kernel_inode.blocks_direct[i];
+        if (current_block == 0) continue;
+        disk_ops.read((current_block * header.block_size / 512), 8, disk_buf);
+        printf("Block %u, [0x%02x 0x%02x 0x%02x 0x%02x]\n", current_block, disk_buf[0], disk_buf[1], disk_buf[2], disk_buf[3]);
+    }
 
     while(1);
 }

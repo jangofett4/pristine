@@ -7,7 +7,7 @@
 
 #include "stage2_kstdint.h"
 
-#define DISK_READ_MAX_SECTORS 4
+#define DISK_READ_MAX_SECTORS 8
 
 typedef struct {
     uint8_t (*read) (uint32_t lba, size_t sector_count, uint8_t *buf);

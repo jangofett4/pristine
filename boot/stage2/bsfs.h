@@ -5,8 +5,7 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
+#include "stage2_common.h"
 
 #define BSFS_MAGIC      0x42534653
 #define BSFS_VERSION    0x01020100
@@ -15,6 +14,8 @@
 #define BSFS_MAX_MEGABLOCKS   1048576
 #define BSFS_MAX_DIRECTBLOCKS 10
 #define BSFS_MAX_DIRENTNAME   124
+
+#define BSFS_BLOCKSIZE        4096
 
 _Static_assert(BSFS_MAX_DIRECTBLOCKS <= 35, "bsfs: too BSFS_MAX_DIRECTBLOCKS is too high, padding bytes count underflow!");
 _Static_assert(BSFS_MAX_DIRENTNAME == 124, "bsfs: BSFS_MAX_DIRENTNAME is not 124"); // TODO: this is very limiting
@@ -104,20 +105,3 @@ uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap);
 
 // "allocates" a bsfs_dirent_t
 uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
-
-#define BSFS_PANIC(fmt, ...) do { \
-    fflush(stderr);\
-    fflush(stdout);\
-    fprintf(stderr, "\nPANIC %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
-    exit(1); \
-} while(0);
-
-// void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index);
-// void bsfs_bitmap_clear_contiguous(uint8_t *bitmap, const uint64_t area_count, const uint64_t index);
-// uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count, const uint32_t bit_count);
-// uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap);
-// void bsfs_trim_inode(bsfs_inode_t *inode);
-
-#ifdef BSFS_DIV_CEIL
-#undef BSFS_DIV_CEIL
-#endif

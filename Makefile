@@ -12,6 +12,7 @@ CFLAGS   = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
 
 S2CFLAGS = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
            -fno-stack-protector \
+		   -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
            -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
@@ -81,12 +82,11 @@ bin/kernel.elf: $(K_OBJS)
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf
 	@mkdir -p bin/hda
 	mv bin/kernel.elf bin/hda/
-	truncate -s 32M $@
+	truncate -s 1G $@
+	./tools/bsfs/bin/mkfs.bsfs bin/hda.img --label pristine --offset 8
 	dd if=bin/boot/stage1/stage1.bin of=$@ bs=512 seek=0 conv=notrunc
 	dd if=bin/boot/stage2/stage2.bin of=$@ bs=512 seek=1 conv=notrunc
-	@echo 'drive i: file="$(PWD)/bin/hda.img" offset=32768' > mtools.cfg
-	MTOOLSRC=mtools.cfg mformat -v "PRISTINE" i:
-	MTOOLSRC=mtools.cfg mcopy -o -s bin/hda/* i:
+	./tools/bsfs/bin/bsfs-populate bin/hda.img bin/hda --offset 8
 
 # ---- Targets ----
 qemu: bin/hda.img

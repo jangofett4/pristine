@@ -1,5 +1,5 @@
 C = clang
-CFLAGS = -O2 -std=c11 -DBSFS_DEBUG=1 -g
+CFLAGS = -O2 -std=c11 -DBSFS_DEBUG=1 -DBSFS_STDLIB_EXISTS=1 -g
 
 all: bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract
 
