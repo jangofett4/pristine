@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "video/kernel/video.h"
+void _putchar(char ch) {}
 
 void kmain(void) {
     while(1);

@@ -20,15 +20,15 @@
 
 #include "printf.h"
 
-static idt32_entry_t idt[IDT32_SIZE];
+static IDT32Entry idt[IDT32_SIZE];
 
 static uint8_t disk_buf[DISK_READ_MAX_SECTORS * 512];
 static uint8_t block_buf[BSFS_BLOCKSIZE];
 
-static video_t video;
-static serial_t serial;
+static Video video;
+static Serial serial;
 
-void keyboard_handler(idt32_isr_frame_t *frame) {
+void keyboard_handler(IDT32ISRFrame *frame) {
     uint8_t scancode = io_inb(0x60);
     printf("Scancode 0x%x\n", scancode);
 }
@@ -41,8 +41,8 @@ void stage2_boot(void) {
     serial_init(&serial, 0x3F8);
     serial_set_default(&serial);
 
-    vesa_vbe_info vesa_info = vesa_vbe_get_info();
-    vesa_vbe_mode_info vesa_mode_info = vesa_vbe_get_mode_info();
+    VesaVbeInfo vesa_info = vesa_vbe_get_info();
+    VesaVbeModeInfo vesa_mode_info = vesa_vbe_get_mode_info();
 
     uint8_t *ptr = (uint8_t*)vesa_mode_info.PhysBasePtr;
     for (size_t y = 50; y < 150; y++) {
@@ -55,7 +55,7 @@ void stage2_boot(void) {
     printf("Stage 2 bootloader started\n");
     printf("Setting up interrupts...\n");
 
-    idt32_isr_handler_t isr_table[] = {
+    IDT32ISRHandler isr_table[] = {
         ISR_T( 0), ISR_T( 1), ISR_I( 2), ISR_T( 3), 
         ISR_T( 4), ISR_T( 5), ISR_T( 6), ISR_T( 7), 
         ISR_T( 8), ISR_T( 9), ISR_T(10), ISR_T(11), 
@@ -72,8 +72,8 @@ void stage2_boot(void) {
 
     idt32_set_entries(idt, isr_table, 48);
 
-    idt32_ptr_t idt_ptr;
-    idt_ptr.limit = (IDT32_SIZE * sizeof(idt32_entry_t)) - 1;
+    IDT32Ptr idt_ptr;
+    idt_ptr.limit = (IDT32_SIZE * sizeof(IDT32Entry)) - 1;
     idt_ptr.base = (uint32_t)&idt;
 
     idt32_load_idtr(&idt_ptr);
@@ -84,7 +84,7 @@ void stage2_boot(void) {
     idt32_set_dispatch(33, keyboard_handler);
     pic_unmask_irq(1); // Keyboard
 
-    ata_pio_status_t atapio_status;
+    AtaPioStatus atapio_status;
 
     ata_pio_set_disk(ATA_PIO_DISK_MASTER);
     atapio_status = ata_pio_get_status();
@@ -112,13 +112,13 @@ void stage2_boot(void) {
 
     while (!ata_pio_drive_ready());
 
-    disk_ops_vtable_t disk_ops = ata_pio_get_disk_ops();
+    DiskOpsVtable disk_ops = ata_pio_get_disk_ops();
 
     const uint32_t bsfs_offset = 8 * 4096;
 
     disk_ops.read(bsfs_offset / 512, 1, disk_buf);
-    bsfs_header_t header;
-    memcpy(&header, disk_buf, sizeof(bsfs_header_t));
+    BsfsHeader header;
+    memcpy(&header, disk_buf, sizeof(BsfsHeader));
 
     printf("BSFS:\n");
     printf(" Label:             %s\n", header.label);
@@ -135,19 +135,19 @@ void stage2_boot(void) {
     }
 
     uint32_t inode_table_start = header.inode_table_start;
-    uint64_t root_inode_byte_offset = (header.block_size * inode_table_start) + (header.root_inode * sizeof(bsfs_inode_t));
+    uint64_t root_inode_byte_offset = (header.block_size * inode_table_start) + (header.root_inode * sizeof(BsfsInode));
     uint32_t root_inode_sector = root_inode_byte_offset / 512;
 
     disk_ops.read(root_inode_sector, 1, disk_buf);
-    bsfs_inode_t root_inode;
-    memcpy(&root_inode, disk_buf + sizeof(bsfs_inode_t), sizeof(bsfs_inode_t));
+    BsfsInode root_inode;
+    memcpy(&root_inode, disk_buf + sizeof(BsfsInode), sizeof(BsfsInode));
 
     if (root_inode.type != BSFS_INODE_TYPE_DIRECTORY) {
         PANIC("bsfs: root inode is not a directory");
     }
 
     printf("Root Inode:\n");
-    printf(" Size:              %u dirents\n", root_inode.size / sizeof(bsfs_dirent_t));
+    printf(" Size:              %u dirents\n", root_inode.size / sizeof(BsfsDirent));
     printf(" Blocks:            %u\n", root_inode.blocks);
 
     if (root_inode.size == 0) {
@@ -163,9 +163,9 @@ void stage2_boot(void) {
         }
         printf(" Block %u: %u, navigating...\n", i, current_block);
         disk_ops.read(header.block_size * current_block / 512, 8, block_buf);
-        bsfs_dirent_t *dirents = (bsfs_dirent_t*)block_buf;
-        for (size_t i = 0; i < header.block_size / sizeof(bsfs_dirent_t); i++) {
-            bsfs_dirent_t *dirent = &dirents[i];
+        BsfsDirent *dirents = (BsfsDirent*)block_buf;
+        for (size_t i = 0; i < header.block_size / sizeof(BsfsDirent); i++) {
+            BsfsDirent *dirent = &dirents[i];
             if (dirent->inode == 0) continue;
             printf(" > Dirent: %s [%u]\n", dirent->name, dirent->inode);
             if (strcmp("kernel.elf", dirent->name) == 0) {
@@ -182,12 +182,12 @@ void stage2_boot(void) {
     }
 
     printf("kernel.elf found, Inode %u\n", kernel_inode_idx);
-    uint64_t kernel_inode_byte_offset = (header.block_size * inode_table_start) + (kernel_inode_idx * sizeof(bsfs_inode_t));
+    uint64_t kernel_inode_byte_offset = (header.block_size * inode_table_start) + (kernel_inode_idx * sizeof(BsfsInode));
     uint32_t kernel_inode_sector = kernel_inode_byte_offset / 512;
     uint32_t kernel_inode_buf_offset = kernel_inode_byte_offset % 512;
     disk_ops.read(kernel_inode_sector, 1, disk_buf);
-    bsfs_inode_t kernel_inode;
-    memcpy(&kernel_inode, disk_buf + kernel_inode_buf_offset, sizeof(bsfs_inode_t));
+    BsfsInode kernel_inode;
+    memcpy(&kernel_inode, disk_buf + kernel_inode_buf_offset, sizeof(BsfsInode));
 
     if (kernel_inode.type != BSFS_INODE_TYPE_FILE) {
         PANIC("pristine: kernel.elf is not a file");

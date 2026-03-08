@@ -10,8 +10,8 @@
 #include "stage2_memory.h"
 #include "printf.h"
 
-const disk_ops_vtable_t *_default_ops;
-fat16_header_t header;
+const DiskOpsVtable *_default_ops;
+Fat16Header header;
 size_t _partition_base;
 size_t _fat_start;
 size_t _fat2_start;
@@ -19,7 +19,7 @@ size_t _root_start;
 size_t _root_size;
 size_t _data_start;
 
-fat16_header_t fat16_init(const disk_ops_vtable_t *disk_ops, size_t partition_base) {
+Fat16Header fat16_init(const DiskOpsVtable *disk_ops, size_t partition_base) {
     _default_ops = disk_ops;
     _partition_base = partition_base;
 
@@ -33,8 +33,8 @@ fat16_header_t fat16_init(const disk_ops_vtable_t *disk_ops, size_t partition_ba
     return header;
 }
 
-fat16_file_t fat16_find_root_file(char *name, char *ext) {
-    fat16_item_t item;
+Fat16File fat16_find_root_file(char *name, char *ext) {
+    Fat16Item item;
     uint8_t found = 0;
     uint8_t buf[512];
     ASSERT(_default_ops->read(_root_start, 1, buf), "Unable to read root directory");
@@ -60,11 +60,11 @@ fat16_file_t fat16_find_root_file(char *name, char *ext) {
         }
     }
     if (found) {
-        fat16_file_t file;
+        Fat16File file;
         fat16_file_open(&item, &file);
         return file;
     } else {
-        fat16_file_t file = {
+        Fat16File file = {
             .bytes_remaining = 0,
             .current_cluster = 0,
             .current_sector = 0,
@@ -76,18 +76,18 @@ fat16_file_t fat16_find_root_file(char *name, char *ext) {
     }
 }
 
-uint32_t fat16_cluster_to_lba(const fat16_file_t *file) {
+uint32_t fat16_cluster_to_lba(const Fat16File *file) {
     return _data_start + (file->current_cluster - 2) * header.bpb.num_sector_per_cluster;
 }
 
-void fat16_file_open(const fat16_item_t *item, fat16_file_t *file) {
+void fat16_file_open(const Fat16Item *item, Fat16File *file) {
     file->current_cluster = item->cluster_low;
     file->bytes_remaining = item->size;
     file->eof = item->size == 0 ? 1 : 0;
     file->exists = 1;
 }
 
-void fat16_file_read(const fat16_item_t *item, fat16_file_t *file, uint8_t *buf) {
+void fat16_file_read(const Fat16Item *item, Fat16File *file, uint8_t *buf) {
     uint32_t lba = fat16_cluster_to_lba(file);
     uint32_t addr;
     for (addr = 0; addr < header.bpb.num_sector_per_cluster; addr++) {

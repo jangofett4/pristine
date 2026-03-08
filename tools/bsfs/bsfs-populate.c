@@ -24,7 +24,7 @@
 
 #define DIV_CEIL(a, b) (((a) + (b) - 1) / (b))
 
-void bsfs_populate_dir(const char *path, FILE *image_fike, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, bsfs_inode_t *inode_table);
+void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table);
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -115,9 +115,9 @@ int main(int argc, char **argv) {
     }
     setvbuf(image, NULL, _IOFBF, 1024 * 1024 * 64);
 
-    bsfs_header_t header;
+    BsfsHeader header;
     fseeko(image, bsfs_header_idx, SEEK_SET);
-    if (!fread(&header, sizeof(bsfs_header_t), 1, image)) {
+    if (!fread(&header, sizeof(BsfsHeader), 1, image)) {
         printf("Error: unable to read header at offset 0x%04x\n", bsfs_header_idx);
         return 1;
     }
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
     uint64_t block_bitmap_size     = header.block_bitmap_blocks * final_blocksize;
     uint64_t megablock_bitmap_size = header.megablock_bitmap_size;
     uint64_t inode_bitmap_size     = header.inode_bitmap_blocks * final_blocksize;
-    uint64_t inode_table_size      = header.inode_count * sizeof(bsfs_inode_t);
+    uint64_t inode_table_size      = header.inode_count * sizeof(BsfsInode);
 
     uint64_t total_block_count       = image_file_size / final_blocksize;
     uint64_t total_inode_count       = total_block_count / 4;
@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
     uint8_t *block_bitmap     = calloc(block_bitmap_size, 1);
     uint8_t *megablock_bitmap = calloc(megablock_bitmap_size, 1);
     uint8_t *inode_bitmap     = calloc(inode_bitmap_size, 1);
-    bsfs_inode_t *inode_table = calloc(header.inode_count, sizeof(bsfs_inode_t));
+    BsfsInode *inode_table = calloc(header.inode_count, sizeof(BsfsInode));
 
 #if defined (linux) || defined (__linux__)
     madvise(block_bitmap, block_bitmap_size, MADV_WILLNEED);
@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
 
     uint32_t sentinel_inode_idx = bsfs_alloc_inode(&header, inode_bitmap);
     uint32_t root_inode_idx = bsfs_alloc_inode(&header, inode_bitmap);
-    bsfs_inode_t *root_inode = &inode_table[root_inode_idx];
+    BsfsInode *root_inode = &inode_table[root_inode_idx];
     header.root_inode = root_inode_idx;
 
     bsfs_populate_dir(root_path, image, &header, root_inode, root_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
     fwrite((uint8_t*)inode_table, 1, header.inode_table_blocks * header.block_size, image);
 
     fseeko(image, bsfs_header_idx, SEEK_SET);
-    fwrite(&header, sizeof(bsfs_header_t), 1, image);
+    fwrite(&header, sizeof(BsfsHeader), 1, image);
 
     free(block_bitmap);
     free(megablock_bitmap);
@@ -261,7 +261,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void bsfs_populate_dir(const char *path, FILE *image_file, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, bsfs_inode_t *inode_table) {
+void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table) {
     DIR *current_dir = opendir(path);
     if (!current_dir) {
         BSFS_PANIC("bsfs_populate_dir: unable to open path '%s'", path);
@@ -292,25 +292,25 @@ void bsfs_populate_dir(const char *path, FILE *image_file, bsfs_header_t *header
         if (current_host_dirent->d_type == DT_DIR) {
             uint64_t guest_directory_dirent_offset = bsfs_alloc_dirent(header, current_guest_inode, block_bitmap, megablock_bitmap);
             uint32_t guest_subdirectory_inode_idx  = bsfs_alloc_inode(header, inode_bitmap);
-            bsfs_inode_t *guest_subdirectory_inode = &inode_table[guest_subdirectory_inode_idx];
+            BsfsInode *guest_subdirectory_inode = &inode_table[guest_subdirectory_inode_idx];
 
-            current_guest_inode->size += sizeof(bsfs_dirent_t);
-            bsfs_dirent_t guest_directory_dirent = {
+            current_guest_inode->size += sizeof(BsfsDirent);
+            BsfsDirent guest_directory_dirent = {
                 .inode = guest_subdirectory_inode_idx
             };
             snprintf(guest_directory_dirent.name, BSFS_MAX_DIRENTNAME, "%s", current_host_dirent->d_name);
 
             fseeko(image_file, guest_directory_dirent_offset, SEEK_SET);
-            fwrite(&guest_directory_dirent, sizeof(bsfs_dirent_t), 1, image_file);
+            fwrite(&guest_directory_dirent, sizeof(BsfsDirent), 1, image_file);
 
             bsfs_populate_dir(subpath, image_file, header, guest_subdirectory_inode, guest_subdirectory_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
         } else if (current_host_dirent->d_type == DT_REG) {
             uint64_t guest_file_dirent_offset = bsfs_alloc_dirent(header, current_guest_inode, block_bitmap, megablock_bitmap);
             uint32_t guest_file_inode_idx     = bsfs_alloc_inode(header, inode_bitmap);
-            bsfs_inode_t *guest_file_inode    = &inode_table[guest_file_inode_idx];
+            BsfsInode *guest_file_inode    = &inode_table[guest_file_inode_idx];
 
-            current_guest_inode->size += sizeof(bsfs_dirent_t);
-            bsfs_dirent_t guest_file_dirent = {
+            current_guest_inode->size += sizeof(BsfsDirent);
+            BsfsDirent guest_file_dirent = {
                 .inode = guest_file_inode_idx,
             };
             snprintf(guest_file_dirent.name, BSFS_MAX_DIRENTNAME, "%s", current_host_dirent->d_name);
@@ -409,7 +409,7 @@ void bsfs_populate_dir(const char *path, FILE *image_file, bsfs_header_t *header
             }
 
             fseeko(image_file, guest_file_dirent_offset, SEEK_SET);
-            fwrite(&guest_file_dirent, sizeof(bsfs_dirent_t), 1, image_file);
+            fwrite(&guest_file_dirent, sizeof(BsfsDirent), 1, image_file);
         } else if (current_host_dirent->d_type == DT_UNKNOWN) {
             closedir(current_dir);
             BSFS_PANIC("bsfs_populate_dir: host returned DT_UNKNOWN for dirent.d_type, stat() based navigation is unimplemented");

@@ -24,8 +24,8 @@
 
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof(x[0]))
 
-void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, bsfs_inode_t *inode_table);
-void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, bsfs_header_t *header, bsfs_inode_t *inode);
+void bsfs_extract_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, BsfsInode *inode_table);
+void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, BsfsHeader *header, BsfsInode *inode);
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -116,9 +116,9 @@ int main(int argc, char **argv) {
     }
     setvbuf(image, NULL, _IOFBF, 64 * 1024 * 1024);
 
-    bsfs_header_t header;
+    BsfsHeader header;
     fseek(image, bsfs_header_idx, SEEK_SET);
-    if (!fread(&header, sizeof(bsfs_header_t), 1, image)) {
+    if (!fread(&header, sizeof(BsfsHeader), 1, image)) {
         printf("Error: unable to read header at offset 0x%04x\n", bsfs_header_idx);
         return 1;
     }
@@ -167,12 +167,12 @@ int main(int argc, char **argv) {
     uint32_t block_bitmap_size     = header.block_bitmap_blocks * header.block_size;
     uint32_t megablock_bitmap_size = header.megablock_bitmap_blocks * header.block_size;
     uint32_t inode_bitmap_size     = header.inode_bitmap_blocks * header.block_size;
-    uint32_t inode_table_size      = header.inode_count * sizeof(bsfs_inode_t);
+    uint32_t inode_table_size      = header.inode_count * sizeof(BsfsInode);
 
     uint8_t *block_bitmap     = malloc(block_bitmap_size);
     uint8_t *megablock_bitmap = malloc(megablock_bitmap_size);
     uint8_t *inode_bitmap     = malloc(inode_bitmap_size);
-    bsfs_inode_t *inode_table = (bsfs_inode_t*)malloc(inode_table_size);
+    BsfsInode *inode_table = (BsfsInode*)malloc(inode_table_size);
 
 #if defined(linux) || defined(__linux__)
     // As if we made the rest of the program cross platform...
@@ -193,13 +193,13 @@ int main(int argc, char **argv) {
     fread(inode_bitmap, 1, inode_bitmap_size, image);
 
     fseeko(image, header.inode_table_start * header.block_size, SEEK_SET);
-    fread(inode_table, sizeof(bsfs_inode_t), header.inode_count, image);
+    fread(inode_table, sizeof(BsfsInode), header.inode_count, image);
 
-    bsfs_inode_t root_inode = inode_table[header.root_inode];
-    bsfs_dirent_t *root_dirent = (bsfs_dirent_t*)malloc(root_inode.size);
+    BsfsInode root_inode = inode_table[header.root_inode];
+    BsfsDirent *root_dirent = (BsfsDirent*)malloc(root_inode.size);
 
     fseeko(image, root_inode.blocks_direct[0] * header.block_size, SEEK_SET);
-    fread(root_dirent, sizeof(bsfs_dirent_t), root_inode.size / sizeof(bsfs_dirent_t), image);
+    fread(root_dirent, sizeof(BsfsDirent), root_inode.size / sizeof(BsfsDirent), image);
 
     mkdir(root_path, 0755);
     bsfs_extract_dir(root_path, image, &header, &root_inode, header.root_inode, inode_table);
@@ -211,12 +211,12 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header, bsfs_inode_t *current_guest_inode, uint32_t current_guest_inode_idx, bsfs_inode_t *inode_table) {
+void bsfs_extract_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, BsfsInode *inode_table) {
     if (current_guest_inode->type != BSFS_INODE_TYPE_DIRECTORY) {
         BSFS_PANIC("bsfs_extract_dir: inode is not a directory (%u)", current_guest_inode_idx);
     }
 
-    bsfs_dirent_t *current_block_dirents = (bsfs_dirent_t*)malloc(header->block_size);
+    BsfsDirent *current_block_dirents = (BsfsDirent*)malloc(header->block_size);
     // TODO: for now we are only handling blocks_direct
     for (size_t i = 0; i < sizeof(current_guest_inode->blocks_direct) / sizeof(current_guest_inode->blocks_direct[0]); i++) {
         uint32_t current_block = current_guest_inode->blocks_direct[i];
@@ -225,16 +225,16 @@ void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header,
         }
         printf("Dirent block: %u\n", current_block);
         fseeko(image_file, header->block_size * current_block, SEEK_SET);
-        fread(current_block_dirents, sizeof(bsfs_dirent_t), header->block_size / sizeof(bsfs_dirent_t), image_file);
-        for (size_t d = 0; d < header->block_size / sizeof(bsfs_dirent_t); d++) {
-            bsfs_dirent_t *current_dirent = &current_block_dirents[d];
+        fread(current_block_dirents, sizeof(BsfsDirent), header->block_size / sizeof(BsfsDirent), image_file);
+        for (size_t d = 0; d < header->block_size / sizeof(BsfsDirent); d++) {
+            BsfsDirent *current_dirent = &current_block_dirents[d];
             if (current_block_dirents[d].inode == BSFS_INODE_TYPE_FREE) {
                 continue;
             }
             char subpath[PATH_MAX];
             snprintf(subpath, PATH_MAX, "%s/%s", path, current_dirent->name);
             printf("> Dirent: %zu, %s\n", d, current_dirent->name);
-            bsfs_inode_t subinode = inode_table[current_dirent->inode];
+            BsfsInode subinode = inode_table[current_dirent->inode];
             if (subinode.type == BSFS_INODE_TYPE_FREE) {
                 continue;
             } else if (subinode.type == BSFS_INODE_TYPE_FILE) {
@@ -246,7 +246,7 @@ void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header,
                 bsfs_write_inode_to_file(image_file, subfile, header, &subinode);
                 fclose(subfile);
             } else if (subinode.type == BSFS_INODE_TYPE_DIRECTORY) {
-                printf(" - Inode: Directory, %lu items\n", subinode.size / sizeof(bsfs_dirent_t));
+                printf(" - Inode: Directory, %lu items\n", subinode.size / sizeof(BsfsDirent));
                 mkdir(subpath, 0755);
                 bsfs_extract_dir(subpath, image_file, header, &subinode, current_dirent->inode, inode_table);
             } else if (subinode.type == BSFS_INODE_TYPE_SYMLINK) {
@@ -260,7 +260,7 @@ void bsfs_extract_dir(const char *path, FILE *image_file, bsfs_header_t *header,
     free(current_block_dirents);
 }
 
-void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, bsfs_header_t *header, bsfs_inode_t *inode) {
+void bsfs_write_inode_to_file(FILE *image_file, FILE *host_file, BsfsHeader *header, BsfsInode *inode) {
     if (inode->type != BSFS_INODE_TYPE_FILE) {
         BSFS_PANIC("bsfs_write_inode_to_file: called with non-file inode");
     }

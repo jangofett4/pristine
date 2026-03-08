@@ -8,9 +8,9 @@
 #include "stage2_memory.h"
 #include "stage2_kstdint.h"
 
-video_t *_ptr_video_default;
+Video *_ptr_video_default;
 
-void video_init(video_t *self)
+void video_init(Video *self)
 {
     self->address = (uint16_t*)0xb8000;
     self->row = 0;
@@ -19,7 +19,7 @@ void video_init(video_t *self)
     self->max_rows = 25;
 }
 
-void video_putch(video_t *self, char ch) {
+void video_putch(Video *self, char ch) {
     if (ch == '\n') {
         self->column = 0;
         self->row++;
@@ -40,7 +40,7 @@ void video_putch(video_t *self, char ch) {
         video_scroll(self, 1);
 }
 
-void video_scroll(video_t *self, uint8_t lines) {
+void video_scroll(Video *self, uint8_t lines) {
     size_t line_size = self->max_columns;
 
     memcpy16_i(
@@ -66,16 +66,16 @@ void video_scroll(video_t *self, uint8_t lines) {
     self->column = 0;
 }
 
-void video_puts(video_t *self, const char *str) {
+void video_puts(Video *self, const char *str) {
     while (*str) {
         video_putch(self, *str++);
     }
 }
 
-void video_set_default(video_t *video) {
+void video_set_default(Video *video) {
     _ptr_video_default = video;
 }
 
-video_t* video_get_default() {
+Video* video_get_default() {
     return _ptr_video_default;
 }

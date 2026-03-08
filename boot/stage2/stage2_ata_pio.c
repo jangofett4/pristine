@@ -12,10 +12,9 @@
 #include "printf.h"
 
 static uint16_t _ata_buffer_identify[256] = {0};
-// static uint16_t _ata_buffer_read[ATA_PIO_READ_MAXSECTORS / 2 * 256] = {0};
 
-ata_pio_status_t ata_pio_get_status() {
-    ata_pio_status_t status;
+AtaPioStatus ata_pio_get_status() {
+    AtaPioStatus status;
     status.raw = io_inb(ATA_PIO_PORT_COMMAND);
     return status;
 }
@@ -43,9 +42,9 @@ uint16_t ata_pio_read_dataport(void) {
     return io_inw(ATA_PIO_PORT_DATAREGISTER);
 }
 
-ata_pio_status_t ata_pio_identify(void) {
+AtaPioStatus ata_pio_identify(void) {
     io_outb(ATA_PIO_PORT_COMMAND, ATA_PIO_CMD_IDENTIFY);
-    ata_pio_status_t status = ata_pio_get_status();
+    AtaPioStatus status = ata_pio_get_status();
     if (status.raw == 0)
         return status;
     while ((status = ata_pio_get_status()).flags.bsy) {
@@ -88,11 +87,11 @@ uint32_t ata_pio_get_max_sectors(void) {
 }
 
 uint8_t ata_pio_drive_ready(void) {
-    ata_pio_status_t status = ata_pio_get_status();
+    AtaPioStatus status = ata_pio_get_status();
     return (!status.flags.bsy) & status.flags.rdy;
 }
 
-ata_pio_read_status_t ata_pio_readsector(uint32_t lba, uint8_t *buf) {
+AtaPioReadStatus ata_pio_readsector(uint32_t lba, uint8_t *buf) {
     io_outb(ATA_PIO_PORT_DRIVEHEAD, 0xE0 | ((lba >> 24) & 0x0F));
     ata_pio_delay();
     
@@ -103,8 +102,8 @@ ata_pio_read_status_t ata_pio_readsector(uint32_t lba, uint8_t *buf) {
     io_outb(ATA_PIO_PORT_LBAHIGH, (lba >> 16) & 0xFF);
     io_outb(ATA_PIO_PORT_COMMAND, ATA_PIO_CMD_READ);
     ata_pio_delay();
-    ata_pio_status_t status = ata_pio_get_status();
-    ata_pio_read_status_t readstatus;
+    AtaPioStatus status = ata_pio_get_status();
+    AtaPioReadStatus readstatus;
     do {
         status = ata_pio_get_status();
         if (status.flags.err) break;
@@ -125,7 +124,7 @@ ata_pio_read_status_t ata_pio_readsector(uint32_t lba, uint8_t *buf) {
     return readstatus;
 }
 
-ata_pio_read_status_t ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint8_t *buf) {
+AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint8_t *buf) {
     if (sectors_to_read > DISK_READ_MAX_SECTORS) {
         PANIC("Cannot read more than %d sectors at a time!", DISK_READ_MAX_SECTORS);
     }
@@ -140,8 +139,8 @@ ata_pio_read_status_t ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read,
     io_outb(ATA_PIO_PORT_LBAHIGH, (lba >> 16) & 0xFF);
     io_outb(ATA_PIO_PORT_COMMAND, ATA_PIO_CMD_READ);
     ata_pio_delay();
-    ata_pio_read_status_t readstatus;
-    ata_pio_status_t status;
+    AtaPioReadStatus readstatus;
+    AtaPioStatus status;
 
     uint16_t *buf16 = (uint16_t*)buf;
     for (uint8_t sector = 0; sector < sectors_to_read; sector++) {
@@ -167,7 +166,7 @@ ata_pio_read_status_t ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read,
 }
     
 uint8_t ata_pio_disk_ops_read(uint32_t lba, size_t sector_count, uint8_t *buf) {
-    ata_pio_read_status_t status = ata_pio_readsectors(lba, sector_count, buf);
+    AtaPioReadStatus status = ata_pio_readsectors(lba, sector_count, buf);
     if (status.status.raw == 0)
         return 0;
     return 1;
@@ -175,27 +174,13 @@ uint8_t ata_pio_disk_ops_read(uint32_t lba, size_t sector_count, uint8_t *buf) {
 
 uint8_t ata_pio_disk_ops_write(uint32_t lba, size_t sector_count, const uint8_t *buf) {
     PANIC("Disk write for ATA PIO is unimplemented!");
+    return 0;
 }
 
-disk_ops_vtable_t ata_pio_get_disk_ops() {
-    disk_ops_vtable_t vtable = {
+DiskOpsVtable ata_pio_get_disk_ops() {
+    DiskOpsVtable vtable = {
         .read = ata_pio_disk_ops_read,
         .write = ata_pio_disk_ops_write
     };
     return vtable;
 }
-
-/*
-void ata_pio_debug_print_status(ata_pio_status_t *status) {
-    printf(nameof(ata_pio_status_t) " {\n");
-    printf(" %-4s = %d\n", "err", status->flags.err);
-    printf(" %-4s = %d\n", "idx", status->flags.idx);
-    printf(" %-4s = %d\n", "corr", status->flags.corr);
-    printf(" %-4s = %d\n", "drq", status->flags.drq);
-    printf(" %-4s = %d\n", "srv", status->flags.srv);
-    printf(" %-4s = %d\n", "df", status->flags.df);
-    printf(" %-4s = %d\n", "rdy", status->flags.rdy);
-    printf(" %-4s = %d\n", "bsy", status->flags.bsy);
-    printf("}\n");
-}
-*/

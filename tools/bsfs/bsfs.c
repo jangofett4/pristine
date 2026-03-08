@@ -5,11 +5,8 @@
  */
 
 #include "bsfs.h"
-
-#ifdef BSFS_STDLIB_EXISTS
 #include <stdint.h>
 #include <stdio.h>
-#endif
 
 inline void bsfs_bitmap_set(uint8_t *bitmap, const uint32_t index) {
 #ifdef BSFS_DEBUG
@@ -58,7 +55,7 @@ uint32_t bsfs_bitmap_find(uint8_t *bitmap, const uint32_t bit_count)
 }
 
 
-uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t *megablock_bitmap) {
+uint32_t bsfs_alloc_block(BsfsHeader *header, uint8_t *block_bitmap, uint8_t *megablock_bitmap) {
     uint32_t free_megablock = bsfs_bitmap_find(megablock_bitmap, header->megablock_bitmap_size * 8);
     if (free_megablock == UINT32_MAX) {
         // TODO: in this case we might still have some free blocks in the last megablock.
@@ -98,7 +95,7 @@ uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t 
     return free_block;
 }
 
-uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap) {
+uint32_t bsfs_alloc_inode(BsfsHeader *header, uint8_t *inode_bitmap) {
     uint32_t free_inode = bsfs_bitmap_find(inode_bitmap, header->inode_count);
     if (free_inode == UINT32_MAX) {
         BSFS_PANIC("bsfs_alloc_inode: No free inode remain on image!");
@@ -109,7 +106,7 @@ uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap) {
     return free_inode;
 }
 
-uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap)
+uint64_t bsfs_alloc_dirent(BsfsHeader *header, BsfsInode *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap)
 {
     #ifdef BSFS_DEBUG
     if (inode->type != BSFS_INODE_TYPE_DIRECTORY) {
@@ -132,7 +129,7 @@ uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *
     return header->block_size * inode->blocks_direct[new_dirent_local_block] + new_dirent_offset;
 }
 
-// TODO: We can add a new "empty dirent slot" to bsfs_inode_t to keep track or next empty dirent in inode to save some time
+// TODO: We can add a new "empty dirent slot" to BsfsInode to keep track or next empty dirent in inode to save some time
 
 void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index) {
     BSFS_PANIC("bsfs_bitmap_set_contiguous: unimplemented");
@@ -146,6 +143,6 @@ uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count,
     BSFS_PANIC("bsfs_bitmap_find_contiguous: unimplemented");
 }
 
-uint32_t bsfs_alloc_block_contiguous(bsfs_header_t *header, const uint32_t area_count, uint8_t *block_bitmap) {
+uint32_t bsfs_alloc_block_contiguous(BsfsHeader *header, const uint32_t area_count, uint8_t *block_bitmap) {
     BSFS_PANIC("bsfs_alloc_block_contiguous: unimplemented");
 }

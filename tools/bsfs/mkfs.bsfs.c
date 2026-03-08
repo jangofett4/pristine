@@ -134,7 +134,7 @@ int main(int argc, char **argv)
     uint32_t inode_bitmap_bytes      = DIV_CEIL(inode_count, 8);
     uint32_t inode_bitmap_blocks     = DIV_CEIL(inode_bitmap_bytes, final_blocksize);
 
-    uint32_t inode_table_bytes       = inode_count * sizeof(bsfs_inode_t);
+    uint32_t inode_table_bytes       = inode_count * sizeof(BsfsInode);
     uint32_t inode_table_blocks      = DIV_CEIL(inode_table_bytes, final_blocksize);
 
     uint32_t reserved_blocks        = final_offset + 1;
@@ -159,12 +159,12 @@ int main(int argc, char **argv)
     printf(" Total blocks:     %u\n", total_blocks);
     printf(" Total inodes:     %u\n", inode_count);
 
-    if (sizeof(bsfs_header_t) != 512) {
-        BSFS_PANIC("mkfs.bsfs: sizeof(bsfs_header_t), expected 512 got %lu", sizeof(bsfs_header_t));
+    if (sizeof(BsfsHeader) != 512) {
+        BSFS_PANIC("mkfs.bsfs: sizeof(BsfsHeader), expected 512 got %lu", sizeof(BsfsHeader));
     }
 
-    bsfs_header_t header = {
-        .bootjmp                 = { 0xEB, offsetof(bsfs_header_t, bootcode) - 2, 0x90 },
+    BsfsHeader header = {
+        .bootjmp                 = { 0xEB, offsetof(BsfsHeader, bootcode) - 2, 0x90 },
         .magic                   = BSFS_MAGIC,
         .version                 = BSFS_VERSION,
         .block_size              = final_blocksize,
@@ -193,9 +193,9 @@ int main(int argc, char **argv)
 
     memcpy(header.label, (uint8_t*)final_label, strlen(final_label));
     fseeko(image, (uint64_t)bsfs_base, SEEK_SET);
-    fwrite(&header, sizeof(bsfs_header_t), 1, image);
+    fwrite(&header, sizeof(BsfsHeader), 1, image);
 
-    uint64_t padding_size = final_blocksize - sizeof(bsfs_header_t);
+    uint64_t padding_size = final_blocksize - sizeof(BsfsHeader);
     zeros = calloc(1, padding_size);
     fwrite(zeros, 1, padding_size, image);
     free(zeros);

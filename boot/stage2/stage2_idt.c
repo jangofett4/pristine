@@ -10,9 +10,9 @@
 #include "printf.h"
 
 // This is a bit big
-static isr_dispatch_t dispatch_table[48] = {0};
+static IDT32ISRDispatch dispatch_table[48] = {0};
 
-void idt32_set_entry_int(idt32_entry_t *idt_table, uint32_t index, uint32_t handler) {
+void idt32_set_entry_int(IDT32Entry *idt_table, uint32_t index, uint32_t handler) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].zero = 0;
@@ -20,7 +20,7 @@ void idt32_set_entry_int(idt32_entry_t *idt_table, uint32_t index, uint32_t hand
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
 
-void idt32_set_entry_trap(idt32_entry_t *idt_table, uint32_t index, uint32_t handler) {
+void idt32_set_entry_trap(IDT32Entry *idt_table, uint32_t index, uint32_t handler) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].zero = 0;
@@ -28,7 +28,7 @@ void idt32_set_entry_trap(idt32_entry_t *idt_table, uint32_t index, uint32_t han
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
 
-void idt32_set_entries(idt32_entry_t *entries, idt32_isr_handler_t *handlers, size_t size) {
+void idt32_set_entries(IDT32Entry *entries, IDT32ISRHandler *handlers, size_t size) {
     for (size_t i = 0; i < size; i++) {
         if (handlers[i].type == ISR_INTERRUPT)
             idt32_set_entry_int(entries, i, (uint32_t)handlers[i].handler);
@@ -45,12 +45,12 @@ void idt32_disable_interrupts(void) {
     __asm__ volatile("cli");
 }
 
-void idt32_set_dispatch(uint8_t vector, isr_dispatch_t handler) {
+void idt32_set_dispatch(uint8_t vector, IDT32ISRDispatch handler) {
     dispatch_table[vector] = handler;
 }
 
-void idt32_isr_handler(idt32_isr_frame_t *frame) {
-    isr_dispatch_t handler = dispatch_table[frame->int_no];
+void idt32_isr_handler(IDT32ISRFrame *frame) {
+    IDT32ISRDispatch handler = dispatch_table[frame->int_no];
     
     if (!handler) {
         printf("Error: Unhandled unmasked vector %d\n", frame->int_no);
@@ -70,8 +70,8 @@ void idt32_isr_handler(idt32_isr_frame_t *frame) {
         pic_isr_master_return();
 }
 
-void idt32_debug_print_frame(idt32_isr_frame_t *frame) {
-    printf(nameof(idt32_isr_frame_t) " {\n");
+void idt32_debug_print_frame(IDT32ISRFrame *frame) {
+    printf(nameof(IDT32ISRFrame) " {\n");
     printf(" %-8s = 0x%08x\n", "gs", frame->gs); 
     printf(" %-8s = 0x%08x\n", "fs", frame->fs); 
     printf(" %-8s = 0x%08x\n", "es", frame->es); 

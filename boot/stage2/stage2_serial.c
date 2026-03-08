@@ -14,9 +14,9 @@
 #include "stage2_serial.h"
 #include "stage2_io.h"
 
-static serial_t *__ptr_serial_default;
+static Serial *__ptr_serial_default;
 
-void serial_init(serial_t *serial, uint16_t port) {
+void serial_init(Serial *serial, uint16_t port) {
     serial->port = port;
     io_outb(port + 1, 0x00);    // disable interrupts
     io_outb(port + 3, 0x80);    // enable DLAB to set baud rate
@@ -27,19 +27,19 @@ void serial_init(serial_t *serial, uint16_t port) {
     io_outb(port + 4, 0x0B);    // IRQs enabled, RTS/DSR set
 }
 
-void serial_putch(serial_t *serial, char c) {
+void serial_putch(Serial *serial, char c) {
     while (!(io_inb(serial->port + 5) & 0x20)); 
     io_outb(serial->port, c);
 }
 
-void serial_puts(serial_t *serial, const char *s) {
+void serial_puts(Serial *serial, const char *s) {
     while (*s) serial_putch(serial, *s++);
 }
 
-void serial_set_default(serial_t *serial) {
+void serial_set_default(Serial *serial) {
     __ptr_serial_default = serial;
 }
 
-serial_t* serial_get_default() {
+Serial* serial_get_default() {
     return __ptr_serial_default;
 }

@@ -8,8 +8,8 @@
 #include "stage2_serial.h"
 
 void _putchar(char ch) {
-    serial_t* serial = serial_get_default();
-    video_t* video = video_get_default();
+    Serial* serial = serial_get_default();
+    Video* video = video_get_default();
     if (serial)
         serial_putch(serial, ch);
     if (video)

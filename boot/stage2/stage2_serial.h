@@ -12,10 +12,10 @@
 
 typedef struct {
     uint16_t port;
-} serial_t;
+} Serial;
 
-void serial_init(serial_t* serial, uint16_t port);
-void serial_putch(serial_t* serial, char data);
-void serial_puts(serial_t* serial, const char *data);
-void serial_set_default(serial_t *serial);
-serial_t* serial_get_default(void);
+void serial_init(Serial* serial, uint16_t port);
+void serial_putch(Serial* serial, char data);
+void serial_puts(Serial* serial, const char *data);
+void serial_set_default(Serial *serial);
+Serial* serial_get_default(void);

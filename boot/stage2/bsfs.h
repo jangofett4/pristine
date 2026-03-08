@@ -50,7 +50,7 @@ typedef struct {
     uint8_t  label[32];
     uint8_t  bootcode[395];
     uint8_t  bootcode_magic[2];
-} __attribute__((packed)) bsfs_header_t;
+} __attribute__((packed)) BsfsHeader;
 
 #define BSFS_INODE_TYPE_FREE        0
 #define BSFS_INODE_TYPE_FILE        1
@@ -63,8 +63,6 @@ typedef struct {
 
 #define BSFS_INODE_NULL 0
 #define BSFS_INODE_ROOT 1
-
-#define BSFS_INODE_OFFSET(header, inode_idx) ((uint64_t)(header)->inode_table_start * (header)->block_size + (sizeof(bsfs_inode_t) * (inode_idx)))
 
 typedef struct {
     uint8_t  type;
@@ -82,12 +80,12 @@ typedef struct {
     uint32_t blocks_l2indirect;                    // 4GiB
     uint32_t blocks_l3indirect;                    // 4TiB
     uint8_t  reserved[35 - BSFS_MAX_DIRECTBLOCKS];
-} __attribute__((packed)) bsfs_inode_t;
+} __attribute__((packed)) BsfsInode;
 
 typedef struct {
     uint32_t inode;
     char     name[BSFS_MAX_DIRENTNAME];
-} __attribute__((packed)) bsfs_dirent_t;
+} __attribute__((packed)) BsfsDirent;
 
 void bsfs_bitmap_set(uint8_t *bitmap, const uint32_t index);
 void bsfs_bitmap_clear(uint8_t *bitmap, const uint32_t index);
@@ -99,9 +97,9 @@ uint32_t bsfs_bitmap_find(uint8_t *bitmap, const uint32_t bit_count);
 // Searches and allocates a block based on header given.
 // Requires block and megablock bitmap to be passed.
 // Panics when no free block is found.
-uint32_t bsfs_alloc_block(bsfs_header_t *header, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
+uint32_t bsfs_alloc_block(BsfsHeader *header, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
 
-uint32_t bsfs_alloc_inode(bsfs_header_t *header, uint8_t *inode_bitmap);
+uint32_t bsfs_alloc_inode(BsfsHeader *header, uint8_t *inode_bitmap);
 
 // "allocates" a bsfs_dirent_t
-uint64_t bsfs_alloc_dirent(bsfs_header_t *header, bsfs_inode_t *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
+uint64_t bsfs_alloc_dirent(BsfsHeader *header, BsfsInode *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);

@@ -38,7 +38,7 @@ typedef union {
         uint8_t rdy  : 1; // Ready
         uint8_t bsy  : 1; // Busy
     } __attribute__((packed)) flags;
-} ata_pio_status_t;
+} AtaPioStatus;
 
 typedef union {
     uint8_t raw;
@@ -52,20 +52,18 @@ typedef union {
         uint8_t unc     : 1;
         uint8_t bbk     : 1;
     } __attribute__((packed)) flags;
-} ata_pio_error_t;
+} AtaPioError;
 
 typedef struct {
-    ata_pio_status_t status;
+    AtaPioStatus status;
     uint8_t *data;
-} ata_pio_read_status_t;
+} AtaPioReadStatus;
 
-// void ata_pio_debug_print_status(ata_pio_status_t *status);
-
-ata_pio_status_t ata_pio_get_status();
+AtaPioStatus ata_pio_get_status();
 void ata_pio_set_disk(uint8_t disk);
 void ata_pio_delay(void);
 void ata_pio_zero(void);
-ata_pio_status_t ata_pio_identify(void);
+AtaPioStatus ata_pio_identify(void);
 uint16_t ata_pio_read_dataport(void);
 
 void ata_pio_get_serial_number(char buf[21]);
@@ -73,7 +71,7 @@ void ata_pio_get_model_number(char buf[41]);
 uint32_t ata_pio_get_max_sectors(void);
 uint8_t ata_pio_drive_ready(void);
 
-disk_ops_vtable_t ata_pio_get_disk_ops();
+DiskOpsVtable ata_pio_get_disk_ops();
 
-ata_pio_read_status_t ata_pio_readsector(uint32_t lba, uint8_t *buf);
-ata_pio_read_status_t ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint8_t *buf);
+AtaPioReadStatus ata_pio_readsector(uint32_t lba, uint8_t *buf);
+AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint8_t *buf);

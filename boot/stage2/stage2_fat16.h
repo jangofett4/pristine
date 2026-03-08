@@ -23,7 +23,7 @@ typedef struct {
     uint16_t num_sides;             // Number of sides
     uint32_t num_hidden_sectors;    // Number of hidden sectors
     uint32_t num_sectors_large;     // Large sector count
-} __attribute__((packed)) fat16_bpb_t;
+} __attribute__((packed)) Fat16Bpb;
 
 typedef struct {
     char num_drive;
@@ -34,12 +34,12 @@ typedef struct {
     char sysident[8];
     uint8_t bootcode[448];
     uint8_t bootsignature[2];
-} __attribute__((packed)) fat16_ebpb_t;
+} __attribute__((packed)) Fat16Ebpb;
 
 typedef struct {
-    fat16_bpb_t bpb;
-    fat16_ebpb_t ebpb;
-} __attribute__((packed)) fat16_header_t;
+    Fat16Bpb bpb;
+    Fat16Ebpb ebpb;
+} __attribute__((packed)) Fat16Header;
 
 typedef struct {
     char     name[8];
@@ -64,7 +64,7 @@ typedef struct {
     uint16_t modified_date;     // Last modified date
     uint16_t cluster_low;       // Low 16 bits of start cluster
     uint32_t size;
-} __attribute__((packed)) fat16_item_t;
+} __attribute__((packed)) Fat16Item;
 
 typedef struct {
     uint32_t current_cluster;
@@ -73,9 +73,9 @@ typedef struct {
     uint8_t  *data;
     uint8_t  eof;
     uint8_t  exists;
-} fat16_file_t;
+} Fat16File;
 
-fat16_header_t fat16_init(const disk_ops_vtable_t *disk_ops, size_t partition_base);
-void fat16_file_open(const fat16_item_t *item, fat16_file_t *file);
-void fat16_file_read(const fat16_item_t *item, fat16_file_t *file, uint8_t *buf);
-fat16_file_t fat16_find_root_file(char *name, char *ext);
+Fat16Header fat16_init(const DiskOpsVtable *disk_ops, size_t partition_base);
+void fat16_file_open(const Fat16Item *item, Fat16File *file);
+void fat16_file_read(const Fat16Item *item, Fat16File *file, uint8_t *buf);
+Fat16File fat16_find_root_file(char *name, char *ext);

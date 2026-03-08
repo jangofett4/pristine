@@ -15,12 +15,12 @@ typedef struct {
     uint8_t  zero;      // always 0
     uint8_t  attr;      // gate type, DPL, present bit
     uint16_t offset2;   // bits 16-31 of handler address
-} __attribute__((packed)) idt32_entry_t;
+} __attribute__((packed)) IDT32Entry;
 
 typedef struct {
     uint16_t limit;     // size of IDT - 1
     uint32_t base;      // address of IDT
-} __attribute__((packed)) idt32_ptr_t;
+} __attribute__((packed)) IDT32Ptr;
 
 typedef struct {
     uint32_t gs, fs, es, ds;
@@ -28,19 +28,19 @@ typedef struct {
     uint32_t ebx, edx, ecx, eax;
     uint32_t int_no, err_code;
     uint32_t eip, cs, eflags;
-} __attribute__((packed)) idt32_isr_frame_t;
+} __attribute__((packed)) IDT32ISRFrame;
 
 typedef enum {
   ISR_INTERRUPT,
   ISR_TRAP  
-} idt32_isr_handler_type_t;
+} IDT32ISRHandlerType;
 
 typedef struct {
-    idt32_isr_handler_type_t type;
+    IDT32ISRHandlerType type;
     void (*handler)(void);
-} idt32_isr_handler_t;
+} IDT32ISRHandler;
 
-typedef void (*isr_dispatch_t)(idt32_isr_frame_t *frame);
+typedef void (*IDT32ISRDispatch)(IDT32ISRFrame *frame);
 
 #define ISR_I(i) {.type=ISR_INTERRUPT,.handler=isr_##i}
 #define ISR_T(i) {.type=ISR_TRAP,.handler=isr_##i}
@@ -48,14 +48,14 @@ typedef void (*isr_dispatch_t)(idt32_isr_frame_t *frame);
 #define IDT_ATTR_INTERRUPT  0x8E
 #define IDT_ATTR_TRAP       0x8F
 
-void idt32_load_idtr(idt32_ptr_t *idt_ptr);
-void idt32_set_entry_int(idt32_entry_t *idt_table, uint32_t index, uint32_t handler);
-void idt32_set_entry_trap(idt32_entry_t *idt_table, uint32_t index, uint32_t handler);
-void idt32_set_entries(idt32_entry_t *entries, idt32_isr_handler_t *handlers, size_t size);
+void idt32_load_idtr(IDT32Ptr *idt_ptr);
+void idt32_set_entry_int(IDT32Entry *idt_table, uint32_t index, uint32_t handler);
+void idt32_set_entry_trap(IDT32Entry *idt_table, uint32_t index, uint32_t handler);
+void idt32_set_entries(IDT32Entry *entries, IDT32ISRHandler *handlers, size_t size);
 void idt32_enable_interrupts(void);
 void idt32_disable_interrupts(void);
-void idt32_debug_print_frame(idt32_isr_frame_t *frame);
-void idt32_set_dispatch(uint8_t vector, isr_dispatch_t handler);
+void idt32_debug_print_frame(IDT32ISRFrame *frame);
+void idt32_set_dispatch(uint8_t vector, IDT32ISRDispatch handler);
 
 extern void isr_0(void);
 extern void isr_1(void);
