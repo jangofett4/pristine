@@ -20,7 +20,7 @@ S2CFLAGS = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
 LD       = ld.lld
 
 QEMU     = qemu-system-i386
-QEMUFLAGS = -m 128 -machine pc -serial stdio
+QEMUFLAGS = -m 128 -serial stdio -machine pc
 
 # Kernel C sources (kernel/, drivers/, lib/)
 K_SRCS = $(shell find kernel drivers lib -name "*.c")
@@ -32,6 +32,7 @@ S2_ASMSRCS	= $(shell find boot/stage2 -name "*.asm")
 S2_OBJS 	= $(patsubst %.c, bin/%.o, $(S2_SRCS))
 S2_ASMOBJS	= $(patsubst %.asm, bin/%.o, $(S2_ASMSRCS)) bin/lib/printf.o
 
+S1_INCSRCS		= $(shell find boot/stage1 -name "*.inc")
 S1_ASMSRCS		= boot/stage1/stage1.asm
 S1_ASMOBJS		= $(patsubst %.asm, bin/%.o, $(S1_ASMSRCS))
 
@@ -43,9 +44,9 @@ S1_ASMOBJS		= $(patsubst %.asm, bin/%.o, $(S1_ASMSRCS))
 all: bin/fda.raw
 
 # ---- Stage 1 ----
-bin/boot/stage1/%.o: boot/stage1/%.asm
+bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
 	@mkdir -p $(dir $@)
-	$(ASM) $(ASMFLAGS) $< -o $@
+	$(ASM) $(ASMFLAGS) boot/stage1/stage1.asm -o $@
 
 bin/boot/stage1/stage1.elf: $(S1_ASMOBJS)
 	$(LD) -T boot/stage1/linker_stage1.ld $^ -o $@
@@ -81,12 +82,12 @@ bin/kernel.elf: $(K_OBJS)
 # ---- Final image ----
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf
 	@mkdir -p bin/hda
-	mv bin/kernel.elf bin/hda/
+	mv bin/kernel.elf root/
 	truncate -s 1G $@
 	./tools/bsfs/bin/mkfs.bsfs bin/hda.img --label pristine --offset 8
 	dd if=bin/boot/stage1/stage1.bin of=$@ bs=512 seek=0 conv=notrunc
 	dd if=bin/boot/stage2/stage2.bin of=$@ bs=512 seek=1 conv=notrunc
-	./tools/bsfs/bin/bsfs-populate bin/hda.img bin/hda --offset 8
+	./tools/bsfs/bin/bsfs-populate bin/hda.img root/ --offset 8
 
 # ---- Targets ----
 qemu: bin/hda.img

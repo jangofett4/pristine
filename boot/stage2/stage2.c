@@ -7,6 +7,7 @@
 #include "stage2_common.h"
 #include "stage2_string.h"
 #include "stage2_memory.h"
+#include "stage2_vesa.h"
 #include "stage2_video.h"
 #include "stage2_serial.h"
 #include "stage2_idt.h"
@@ -34,11 +35,22 @@ void keyboard_handler(idt32_isr_frame_t *frame) {
 
 __attribute__((section(".text.stage2")))
 void stage2_boot(void) {
-    video_init(&video);
-    video_set_default(&video);
+    // video_init(&video);
+    // video_set_default(&video);
     
     serial_init(&serial, 0x3F8);
     serial_set_default(&serial);
+
+    vesa_vbe_info vesa_info = vesa_vbe_get_info();
+    vesa_vbe_mode_info vesa_mode_info = vesa_vbe_get_mode_info();
+
+    uint8_t *ptr = (uint8_t*)vesa_mode_info.PhysBasePtr;
+    for (size_t y = 50; y < 150; y++) {
+        for (size_t x = 50; x < 150; x++) {
+            uint32_t *pixel = (uint32_t*)(ptr + y * vesa_mode_info.BytesPerScanLine + x * 4);
+            *pixel = 0x00FF0000;
+        }
+    }
 
     printf("Stage 2 bootloader started\n");
     printf("Setting up interrupts...\n");
@@ -151,7 +163,7 @@ void stage2_boot(void) {
         }
         printf(" Block %u: %u, navigating...\n", i, current_block);
         disk_ops.read(header.block_size * current_block / 512, 8, block_buf);
-        bsfs_dirent_t *dirents = &block_buf;
+        bsfs_dirent_t *dirents = (bsfs_dirent_t*)block_buf;
         for (size_t i = 0; i < header.block_size / sizeof(bsfs_dirent_t); i++) {
             bsfs_dirent_t *dirent = &dirents[i];
             if (dirent->inode == 0) continue;

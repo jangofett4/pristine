@@ -2,30 +2,6 @@
 ; stage1_common - "commonly" used subroutines for stage 1 bootloader
 ; SPDX-License-Identifier: MIT
 
-stage1_video_clear:
-    mov ah, 0x06
-    mov al, 0x00
-    mov bh, 0x0F
-    mov ch, 0x00
-    mov cl, 0x00
-    mov dh, 0xff
-    mov dl, 0xff
-    int 0x10
-    ret
-
-stage1_reset_cursor:
-    mov ah, 0x02
-    mov bh, 0x00
-    mov dh, 0x00
-    mov dl, 0x00
-    int 0x10
-    ret
-
-stage1_video_putch:
-    mov ah, 0x0A
-    mov bh, 0x00
-    int 0x10
-
 stage1_video_puts:
     mov ah, 0x0E
     mov bh, 0x00
@@ -55,7 +31,7 @@ stage1_readdisk:
 
 section .data
 boot_drive:             db 0
-boot_message_diskerr:   db "Disk read error!", 0
+boot_message_diskerr:   db "4", 0
 _asm_dap:
     db 0x10         ; DAP size
     db 0x00         ; reserved
