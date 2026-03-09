@@ -6,10 +6,9 @@
 
 #include "stage2_string.h"
 
-size_t strlen(char str[]) {
-    char* ptr = str;
+size_t strlen(const char str[]) {
     size_t len = 0;
-    while (*(ptr++)) len++;
+    while (str[len] != '\0') len++;
     return len;
 }
 
@@ -29,4 +28,9 @@ int strcmp(const char *s1, const char *s2) {
         s2++;
     }
     return (unsigned char)*s1 - (unsigned char)*s2;
+}
+
+char* strtok(const char *string, const char sep) {
+    return 0;
+    
 }

@@ -7,6 +7,7 @@
 
 #include "stage2_kstdint.h"
 
+#define DISK_SECTOR_SIZE      512
 #define DISK_READ_MAX_SECTORS 8
 
 typedef struct {

@@ -228,12 +228,19 @@ void bsfs_extract_dir(const char *path, FILE *image_file, BsfsHeader *header, Bs
         fread(current_block_dirents, sizeof(BsfsDirent), header->block_size / sizeof(BsfsDirent), image_file);
         for (size_t d = 0; d < header->block_size / sizeof(BsfsDirent); d++) {
             BsfsDirent *current_dirent = &current_block_dirents[d];
+            
+            char subpath[PATH_MAX];
+            snprintf(subpath, PATH_MAX, "%s/%s", path, current_dirent->name);
+            printf("> Dirent: %zu, %s [%u]\n", d, current_dirent->name, current_dirent->inode);
+            
             if (current_block_dirents[d].inode == BSFS_INODE_TYPE_FREE) {
                 continue;
             }
-            char subpath[PATH_MAX];
-            snprintf(subpath, PATH_MAX, "%s/%s", path, current_dirent->name);
-            printf("> Dirent: %zu, %s\n", d, current_dirent->name);
+
+            if (strcmp(current_dirent->name, ".") == 0 || strcmp(current_dirent->name, "..") == 0) {
+                continue; // TODO: I don't even know if this is a proper fix
+            }
+
             BsfsInode subinode = inode_table[current_dirent->inode];
             if (subinode.type == BSFS_INODE_TYPE_FREE) {
                 continue;

@@ -15,8 +15,7 @@
 #include "stage2_io.h"
 #include "stage2_disk.h"
 #include "stage2_ata_pio.h"
-#include "stage2_fat16.h"
-#include "bsfs.h"
+#include "stage2_bsfs.h"
 
 #include "printf.h"
 
@@ -37,7 +36,7 @@ __attribute__((section(".text.stage2")))
 void stage2_boot(void) {
     // video_init(&video);
     // video_set_default(&video);
-    
+
     serial_init(&serial, 0x3F8);
     serial_set_default(&serial);
 
@@ -56,18 +55,18 @@ void stage2_boot(void) {
     printf("Setting up interrupts...\n");
 
     IDT32ISRHandler isr_table[] = {
-        ISR_T( 0), ISR_T( 1), ISR_I( 2), ISR_T( 3), 
-        ISR_T( 4), ISR_T( 5), ISR_T( 6), ISR_T( 7), 
-        ISR_T( 8), ISR_T( 9), ISR_T(10), ISR_T(11), 
+        ISR_T( 0), ISR_T( 1), ISR_I( 2), ISR_T( 3),
+        ISR_T( 4), ISR_T( 5), ISR_T( 6), ISR_T( 7),
+        ISR_T( 8), ISR_T( 9), ISR_T(10), ISR_T(11),
         ISR_T(12), ISR_T(13), ISR_T(14), ISR_I(15),
-        ISR_T(16), ISR_T(17), ISR_T(18), ISR_T(19), 
+        ISR_T(16), ISR_T(17), ISR_T(18), ISR_T(19),
         ISR_T(20), ISR_T(21), ISR_I(22), ISR_I(23),
-        ISR_I(24), ISR_I(25), ISR_I(26), ISR_I(27), 
+        ISR_I(24), ISR_I(25), ISR_I(26), ISR_I(27),
         ISR_I(28), ISR_I(29), ISR_I(30), ISR_I(31),
         ISR_I(32), ISR_I(33), ISR_I(34), ISR_I(35),
         ISR_I(36), ISR_I(37), ISR_I(38), ISR_I(39),
-        ISR_I(40), ISR_I(41), ISR_I(42), ISR_I(43), 
-        ISR_I(44), ISR_I(45), ISR_I(46), ISR_I(47), 
+        ISR_I(40), ISR_I(41), ISR_I(42), ISR_I(43),
+        ISR_I(44), ISR_I(45), ISR_I(46), ISR_I(47),
     };
 
     idt32_set_entries(idt, isr_table, 48);
@@ -114,7 +113,7 @@ void stage2_boot(void) {
 
     DiskOpsVtable disk_ops = ata_pio_get_disk_ops();
 
-    const uint32_t bsfs_offset = 8 * 4096;
+    const uint32_t bsfs_offset = 16 * 4096;
 
     disk_ops.read(bsfs_offset / 512, 1, disk_buf);
     BsfsHeader header;
@@ -134,75 +133,37 @@ void stage2_boot(void) {
         PANIC("bsfs: image has %u byte blocks, cannot process", header.block_size);
     }
 
-    uint32_t inode_table_start = header.inode_table_start;
-    uint64_t root_inode_byte_offset = (header.block_size * inode_table_start) + (header.root_inode * sizeof(BsfsInode));
-    uint32_t root_inode_sector = root_inode_byte_offset / 512;
-
-    disk_ops.read(root_inode_sector, 1, disk_buf);
-    BsfsInode root_inode;
-    memcpy(&root_inode, disk_buf + sizeof(BsfsInode), sizeof(BsfsInode));
-
-    if (root_inode.type != BSFS_INODE_TYPE_DIRECTORY) {
-        PANIC("bsfs: root inode is not a directory");
+    BsfsContext bsfs_context = {
+        .header = &header,
+        .disk_ops = &disk_ops
+    };
+    
+    arena_reset();
+    BsfsFile kernel_file = {
+        .buf = (uint8_t*)arena_alloc(header.block_size, 1),
+        .bufsize = header.block_size
+    };
+    if (bsfs_fopen(&bsfs_context, "/kernel.elf", &kernel_file) < 0) {
+        PANIC("stage2: kernel.elf not found!");
     }
-
-    printf("Root Inode:\n");
-    printf(" Size:              %u dirents\n", root_inode.size / sizeof(BsfsDirent));
-    printf(" Blocks:            %u\n", root_inode.blocks);
-
-    if (root_inode.size == 0) {
-        PANIC("bsfs: root inode has a size of 0");
-    }
-
-    uint32_t kernel_inode_idx = 0;
-    for (size_t i = 0; i < sizeof(root_inode.blocks_direct) / sizeof(root_inode.blocks_direct[0]); i++) {
-        uint32_t current_block = root_inode.blocks_direct[i];
-        if (current_block == 0) {
-            printf("\n");
-            continue;
+    while (!kernel_file.eof) {
+        uint8_t data[16];
+        memset(data, 0, 16);
+        int ret;
+        if ((ret = bsfs_fread(&bsfs_context, data, 1, 16, &kernel_file)) < 0) {
+            PANIC("stage2: bsfs_fread returned %i\n", ret);
         }
-        printf(" Block %u: %u, navigating...\n", i, current_block);
-        disk_ops.read(header.block_size * current_block / 512, 8, block_buf);
-        BsfsDirent *dirents = (BsfsDirent*)block_buf;
-        for (size_t i = 0; i < header.block_size / sizeof(BsfsDirent); i++) {
-            BsfsDirent *dirent = &dirents[i];
-            if (dirent->inode == 0) continue;
-            printf(" > Dirent: %s [%u]\n", dirent->name, dirent->inode);
-            if (strcmp("kernel.elf", dirent->name) == 0) {
-                kernel_inode_idx = dirent->inode;
-                break;
-            }
+        for (size_t i = 0; i < ret; i += 2) {
+            if (i == ret - 2)
+                printf("%02x%02x", data[i], data[i + 1]);
+            else
+                printf("%02x%02x ", data[i], data[i + 1]);
         }
-        if (kernel_inode_idx)
-            break;
+        
+        printf("\n");
     }
-
-    if (!kernel_inode_idx) {
-        PANIC("pristine: kernel.elf not found");
-    }
-
-    printf("kernel.elf found, Inode %u\n", kernel_inode_idx);
-    uint64_t kernel_inode_byte_offset = (header.block_size * inode_table_start) + (kernel_inode_idx * sizeof(BsfsInode));
-    uint32_t kernel_inode_sector = kernel_inode_byte_offset / 512;
-    uint32_t kernel_inode_buf_offset = kernel_inode_byte_offset % 512;
-    disk_ops.read(kernel_inode_sector, 1, disk_buf);
-    BsfsInode kernel_inode;
-    memcpy(&kernel_inode, disk_buf + kernel_inode_buf_offset, sizeof(BsfsInode));
-
-    if (kernel_inode.type != BSFS_INODE_TYPE_FILE) {
-        PANIC("pristine: kernel.elf is not a file");
-    }
-
-    printf("kernel.elf:\n");
-    printf(" Size:   %lu bytes\n", kernel_inode.size);
-    printf(" Blocks: %u\n", kernel_inode.blocks);
-
-    for (size_t i = 0; i < sizeof(kernel_inode.blocks_direct) / sizeof(kernel_inode.blocks_direct[0]); i++) {
-        uint32_t current_block = kernel_inode.blocks_direct[i];
-        if (current_block == 0) continue;
-        disk_ops.read((current_block * header.block_size / 512), 8, disk_buf);
-        printf("Block %u, [0x%02x 0x%02x 0x%02x 0x%02x]\n", current_block, disk_buf[0], disk_buf[1], disk_buf[2], disk_buf[3]);
-    }
+    bsfs_fclose(&kernel_file);
+    arena_reset();
 
     while(1);
 }

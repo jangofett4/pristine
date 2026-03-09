@@ -10,9 +10,9 @@ SECTIONS
     .rodata : { *(.rodata*) }
     .data   : { *(.data*)   }
     .bss    : { 
+        __bss_start = ADDR(.bss);
         *(.bss*)
         *(COMMON)
+        __bss_end = ADDR(.bss) + SIZEOF(.bss);
     }
-    __bss_start = ADDR(.bss);
-    __bss_end = ADDR(.bss) + SIZEOF(.bss);
 }

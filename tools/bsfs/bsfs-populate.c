@@ -24,7 +24,7 @@
 
 #define DIV_CEIL(a, b) (((a) + (b) - 1) / (b))
 
-void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table);
+void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint32_t parent_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table);
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
     BsfsInode *root_inode = &inode_table[root_inode_idx];
     header.root_inode = root_inode_idx;
 
-    bsfs_populate_dir(root_path, image, &header, root_inode, root_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
+    bsfs_populate_dir(root_path, image, &header, root_inode, root_inode_idx, root_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
     // TODO: it would be a good idea to allocate the first block of the root inode before populating
     // Currently it is allocated after bsfs_populate_dir, which means blocks if the first block is sitting deep inside the data blocks
     // It not critical, however it could still be beneficial, since it could be faster to access blocks at the start (spinning drives)
@@ -261,7 +261,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table) {
+void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint32_t parent_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table) {
     DIR *current_dir = opendir(path);
     if (!current_dir) {
         BSFS_PANIC("bsfs_populate_dir: unable to open path '%s'", path);
@@ -274,13 +274,31 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
     current_guest_inode->permissions = BSFS_INODE_PERM_READ | BSFS_INODE_PERM_WRITE;
     current_guest_inode->uid = 0;
     current_guest_inode->gid = 0;
-    current_guest_inode->size = 0;
     current_guest_inode->blocks = 0;
+    current_guest_inode->size = 0;
     current_guest_inode->created = populate_time;
     current_guest_inode->modified = populate_time;
     current_guest_inode->accessed = populate_time;
     current_guest_inode->link_count = 0;
+    
+    uint64_t current_folder_hardlink_dirent_offset = bsfs_alloc_dirent(header, current_guest_inode, block_bitmap, megablock_bitmap);
+    BsfsDirent current_folder_hardlink_dirent = {
+        .name = ".",
+        .inode = current_guest_inode_idx
+    };
+    fseeko(image_file, current_folder_hardlink_dirent_offset, SEEK_SET);
+    fwrite(&current_folder_hardlink_dirent, sizeof(BsfsDirent), 1, image_file);
+    current_guest_inode->size += sizeof(BsfsDirent);
 
+    uint64_t parent_folder_hardlink_dirent_offset = bsfs_alloc_dirent(header, current_guest_inode, block_bitmap, megablock_bitmap);
+    BsfsDirent parent_folder_hardlink_dirent = {
+        .name = "..",
+        .inode = parent_guest_inode_idx
+    };
+    fseeko(image_file, parent_folder_hardlink_dirent_offset, SEEK_SET); // TODO: honestly this is probably not needed, better safe than sorry
+    fwrite(&parent_folder_hardlink_dirent, sizeof(BsfsDirent), 1, image_file);
+    current_guest_inode->size += sizeof(BsfsDirent);
+    
     while ((current_host_dirent = readdir(current_dir))) {
         if (strcmp(current_host_dirent->d_name, ".") == 0 || strcmp(current_host_dirent->d_name, "..") == 0) {
             continue;
@@ -303,7 +321,7 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
             fseeko(image_file, guest_directory_dirent_offset, SEEK_SET);
             fwrite(&guest_directory_dirent, sizeof(BsfsDirent), 1, image_file);
 
-            bsfs_populate_dir(subpath, image_file, header, guest_subdirectory_inode, guest_subdirectory_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
+            bsfs_populate_dir(subpath, image_file, header, guest_subdirectory_inode, guest_subdirectory_inode_idx, current_guest_inode_idx, block_bitmap, megablock_bitmap, inode_bitmap, inode_table);
         } else if (current_host_dirent->d_type == DT_REG) {
             uint64_t guest_file_dirent_offset = bsfs_alloc_dirent(header, current_guest_inode, block_bitmap, megablock_bitmap);
             uint32_t guest_file_inode_idx     = bsfs_alloc_inode(header, inode_bitmap);

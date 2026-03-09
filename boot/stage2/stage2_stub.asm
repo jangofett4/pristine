@@ -14,12 +14,12 @@ extern __bss_end
 
 section .text.entry
 stage2_entry:
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
+    mov eax, 0x10
+    mov ds, eax
+    mov es, eax
+    mov fs, eax
+    mov gs, eax
+    mov ss, eax
     mov esp, 0x00F00000
 
     mov edi, __bss_start

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "stage2_common.h"
+#include "stage2_disk.h"
 
 #define BSFS_MAGIC      0x42534653
 #define BSFS_VERSION    0x01020100
@@ -103,3 +104,32 @@ uint32_t bsfs_alloc_inode(BsfsHeader *header, uint8_t *inode_bitmap);
 
 // "allocates" a bsfs_dirent_t
 uint64_t bsfs_alloc_dirent(BsfsHeader *header, BsfsInode *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
+
+#define BSFS_FOPEN_FILE_NOTFOUND   -1
+#define BSFS_FOPEN_NOT_A_FILE      -2
+#define BSFS_DISK_READ_ERROR       -3
+#define BSFS_FREAD_FILE_TOO_BIG    -4
+#define BSFS_FOPEN_BUF_TOO_SMALL   -5
+#define BSFS_FOPEN_BUF_UNALIGNED   -6
+#define BSFS_FREAD_DISK_READ_ERROR -7
+#define BSFS_FREAD_SIZE_TOO_BIG    -8
+
+typedef struct {
+    const BsfsHeader *header;
+    const DiskOpsVtable *disk_ops;
+} BsfsContext;
+
+typedef struct {
+    BsfsInode *inode;
+    uint8_t *buf;
+    uint32_t bufsize;
+    uint32_t local_block_idx;
+    uint64_t position;
+    int eof;
+} BsfsFile;
+
+uint32_t bsfs_resolve_path(const BsfsContext *context, const char* path);
+int bsfs_read_inode(const BsfsContext *context, const uint32_t inode_idx, BsfsInode *inode_out);
+int bsfs_fopen(const BsfsContext *context, const char* path, BsfsFile *file_out);
+int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t count, BsfsFile *file);
+int bsfs_fclose(BsfsFile *file);

@@ -1,4 +1,4 @@
-ENTRY(_asm_boot_start)
+ENTRY(stage1_boot)
 SECTIONS
 {
     . = 0x7C00;

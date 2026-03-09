@@ -2,7 +2,7 @@ ASM      = nasm
 ASMFLAGS = -f elf32
 
 C        = clang
-COPT	 = 
+COPT	 = -Werror=return-type -Wall -Wextra
 CFLAGS   = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
            -fno-stack-protector \
            -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
@@ -41,7 +41,7 @@ S1_ASMOBJS		= $(patsubst %.asm, bin/%.o, $(S1_ASMSRCS))
 
 .PHONY: all clean qemu debug
 
-all: bin/fda.raw
+all: bin/hda.img
 
 # ---- Stage 1 ----
 bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
@@ -84,10 +84,10 @@ bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.el
 	@mkdir -p bin/hda
 	mv bin/kernel.elf root/
 	truncate -s 1G $@
-	./tools/bsfs/bin/mkfs.bsfs bin/hda.img --label pristine --offset 8
+	./tools/bsfs/bin/mkfs.bsfs bin/hda.img --label pristine --offset 16
 	dd if=bin/boot/stage1/stage1.bin of=$@ bs=512 seek=0 conv=notrunc
 	dd if=bin/boot/stage2/stage2.bin of=$@ bs=512 seek=1 conv=notrunc
-	./tools/bsfs/bin/bsfs-populate bin/hda.img root/ --offset 8
+	./tools/bsfs/bin/bsfs-populate bin/hda.img root --offset 16
 
 # ---- Targets ----
 qemu: bin/hda.img

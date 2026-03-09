@@ -35,7 +35,7 @@ boot_message_diskerr:   db "4", 0
 _asm_dap:
     db 0x10         ; DAP size
     db 0x00         ; reserved
-    dw 63           ; sectors to read
+    dw 127          ; sectors to read
     dw 0x7E00       ; buffer offset
     dw 0x0000       ; buffer segment
     dq 1            ; LBA start (sector 1, right after stage 1)
