@@ -5,70 +5,83 @@
  */
 
 #include "stage2_video.h"
+#include "stage2_vesa.h"
 #include "stage2_memory.h"
 #include "stage2_kstdint.h"
 
 Video *_ptr_video_default;
 
-void video_init(Video *self)
+static Psf1Header _font;
+static uint8_t _font_glyphs[256][PSF_MAX_SUPPORTED_SIZE];
+
+void video_init(Video *video, const VesaVbeModeInfo *mode_info)
 {
-    self->address = (uint16_t*)0xb8000;
-    self->row = 0;
-    self->column = 0;
-    self->max_columns = 80;
-    self->max_rows = 25;
+    video->address = (uint8_t*)mode_info->PhysBasePtr;
+    video->width = mode_info->XResolution;
+    video->height = mode_info->YResolution;
+    video->bpp = mode_info->BitsPerPixel;
+    video->bytes_per_scanline = mode_info->BytesPerScanLine;
+    video->bytes_per_pixel = video->bpp / 8;
+    video->row = 0;
+    video->column = 0;
+    video->color = 0x00FFFFFF;
 }
 
-void video_putch(Video *self, char ch) {
+void video_set_color(Video *video, uint8_t r, uint8_t g, uint8_t b) {
+    return;
+}
+
+void video_putch(Video *video, char ch) {
     if (ch == '\n') {
-        self->column = 0;
-        self->row++;
+        video->column = 0;
+        video->row += _font.size;
     } else {
-        if (self->column >= self->max_columns) {
-            self->column = 0;
-            self->row++;
+        if (video->column >= video->width) {
+            video->column = 0;
+            video->row += _font.size;
         }
 
-        if (self->row >= self->max_rows)
-            video_scroll(self, 1);
+        if (video->row >= video->height)
+            video_scroll(video, 1);
 
-        self->address[(self->row * self->max_columns) + self->column] = (uint16_t)ch | (0x0F << 8);
-        self->column++;
+        uint32_t *pixel = video->address + video->row * video->bytes_per_scanline + video->column * video->bytes_per_pixel;
+        for (size_t i = 0; i < _font.size; i++) {
+            const uint8_t rowdata = _font_glyphs[ch][i];
+            uint32_t *row = (uint32_t*)((uint8_t*)pixel + i * video->bytes_per_scanline);
+            row[0] = (rowdata >> 7 & 1) ? video->color : 0;
+            row[1] = (rowdata >> 6 & 1) ? video->color : 0;
+            row[2] = (rowdata >> 5 & 1) ? video->color : 0;
+            row[3] = (rowdata >> 4 & 1) ? video->color : 0;
+            row[4] = (rowdata >> 3 & 1) ? video->color : 0;
+            row[5] = (rowdata >> 2 & 1) ? video->color : 0;
+            row[6] = (rowdata >> 1 & 1) ? video->color : 0;
+            row[7] = (rowdata >> 0 & 1) ? video->color : 0;
+        }
+        video->column += 8;
     }
 
-    if (self->row >= self->max_rows)
-        video_scroll(self, 1);
+    if (video->row >= video->height)
+        video_scroll(video, 8);
 }
 
-void video_scroll(Video *self, uint8_t lines) {
-    size_t line_size = self->max_columns;
-
-    memcpy16_i(
-        (void*)self->address,
-        (void*)self->address,
-        line_size * lines,
+void video_scroll(Video *video, uint8_t lines) {
+    size_t line_bytes = video->bytes_per_scanline * _font.size * lines;
+    memcpy(
+        video->address,
+        video->address + line_bytes,
+        video->height * video->bytes_per_scanline - line_bytes
+    );
+    video->row = ((video->height / _font.size) - lines) * _font.size;
+    memset(
+        video->address + video->row * video->bytes_per_scanline,
         0,
-        line_size * (self->max_rows - lines)
+        video->height * video->bytes_per_scanline - video->row * video->bytes_per_scanline
     );
-
-    memset16_i(
-        (void*)self->address,
-        0x0720,
-        line_size * (self->max_rows - lines),
-        line_size * lines
-    );
-
-    if (self->row >= lines)
-        self->row -= lines;
-    else
-        self->row = 0;
-    
-    self->column = 0;
 }
 
-void video_puts(Video *self, const char *str) {
+void video_puts(Video *video, const char *str) {
     while (*str) {
-        video_putch(self, *str++);
+        video_putch(video, *str++);
     }
 }
 
@@ -78,4 +91,18 @@ void video_set_default(Video *video) {
 
 Video* video_get_default() {
     return _ptr_video_default;
+}
+
+void video_psf_set_font(Psf1Header header) {
+    _font = header;
+}
+
+int video_psf_set_glyph(size_t idx, uint8_t *glyph, const size_t size) {
+    if (size > PSF_MAX_SUPPORTED_SIZE) {
+        return PSF_SET_GLYPH_SIZE_TOO_BIG;
+    }
+    
+    memcpy(_font_glyphs + idx, glyph, size);
+
+    return 0;
 }

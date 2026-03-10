@@ -34,22 +34,11 @@ void keyboard_handler(IDT32ISRFrame *frame) {
 
 __attribute__((section(".text.stage2")))
 void stage2_boot(void) {
-    // video_init(&video);
-    // video_set_default(&video);
-
     serial_init(&serial, 0x3F8);
     serial_set_default(&serial);
 
     VesaVbeInfo vesa_info = vesa_vbe_get_info();
     VesaVbeModeInfo vesa_mode_info = vesa_vbe_get_mode_info();
-
-    uint8_t *ptr = (uint8_t*)vesa_mode_info.PhysBasePtr;
-    for (size_t y = 50; y < 150; y++) {
-        for (size_t x = 50; x < 150; x++) {
-            uint32_t *pixel = (uint32_t*)(ptr + y * vesa_mode_info.BytesPerScanLine + x * 4);
-            *pixel = 0x00FF0000;
-        }
-    }
 
     printf("Stage 2 bootloader started\n");
     printf("Setting up interrupts...\n");
@@ -138,32 +127,80 @@ void stage2_boot(void) {
         .disk_ops = &disk_ops
     };
     
-    arena_reset();
-    BsfsFile kernel_file = {
-        .buf = (uint8_t*)arena_alloc(header.block_size, 1),
-        .bufsize = header.block_size
-    };
-    if (bsfs_fopen(&bsfs_context, "/kernel.elf", &kernel_file) < 0) {
-        PANIC("stage2: kernel.elf not found!");
-    }
-    while (!kernel_file.eof) {
-        uint8_t data[16];
-        memset(data, 0, 16);
-        int ret;
-        if ((ret = bsfs_fread(&bsfs_context, data, 1, 16, &kernel_file)) < 0) {
-            PANIC("stage2: bsfs_fread returned %i\n", ret);
+    {
+        arena_reset();
+        BsfsFile font_file = {
+            .buf = arena_alloc(header.block_size, 1),
+            .bufsize = header.block_size
+        };
+        if (bsfs_fopen(&bsfs_context, "/fonts/tamzen/Tamzen8x15.psf", &font_file) < 0) {
+            // TODO: instead of straight up panic, we can iterate over what we have, for now this will have to do
+            PANIC("stage2: /fonts/tamzen/Tamzen8x16.psf not found!");
         }
-        for (size_t i = 0; i < ret; i += 2) {
-            if (i == ret - 2)
-                printf("%02x%02x", data[i], data[i + 1]);
-            else
-                printf("%02x%02x ", data[i], data[i + 1]);
+        Psf1Header psf1header;
+        int ret = -1;
+        if ((ret = bsfs_fread(&bsfs_context, &psf1header, sizeof(Psf1Header), 1, &font_file)) < 0) {
+            PANIC("stage2: bsfs_fread returned %i", ret);
         }
-        
-        printf("\n");
+
+        printf("Psf1Header\n");
+        printf(" Magic: [%02x %02x]\n", psf1header.magic[0], psf1header.magic[1]);
+        printf(" Mode:  %08x\n", psf1header.mode);
+        printf(" Size:  %u\n", psf1header.size);
+
+        if (psf1header.magic[0] != 0x36 && psf1header.magic[1] != 0x04) {
+            PANIC("stage2: font file is not PSF1");
+        }
+
+        video_psf_set_font(psf1header);
+        for (size_t i = 0; i < 256; i++) {
+            uint8_t *glyph = arena_alloc(psf1header.size, 1);
+            if ((ret = bsfs_fread(&bsfs_context, glyph, 1, psf1header.size, &font_file)) < 0) {
+                PANIC("stage2: malformed PSF1 font file");
+            }
+            int setglyph_ret = 0;
+            if ((setglyph_ret = video_psf_set_glyph(i, glyph, psf1header.size)) < 0) {
+                if (setglyph_ret == PSF_SET_GLYPH_SIZE_TOO_BIG) {
+                    PANIC("psf_set_glyph: PSF1 glyph size too big");
+                } else {
+                    PANIC("psf_set_glyph: unknown error");
+                }
+            }
+        }
+        bsfs_fclose(&font_file);
+        arena_reset();
     }
-    bsfs_fclose(&kernel_file);
-    arena_reset();
+
+    video_init(&video, &vesa_mode_info);
+    video_set_default(&video);
+
+    printf("Hello, World!\n");
+
+    // arena_reset();
+    // BsfsFile kernel_file = {
+    //     .buf = (uint8_t*)arena_alloc(header.block_size, 1),
+    //     .bufsize = header.block_size
+    // };
+    // if (bsfs_fopen(&bsfs_context, "/kernel.elf", &kernel_file) < 0) {
+    //     PANIC("stage2: kernel.elf not found!");
+    // }
+    // while (!kernel_file.eof) {
+    //     ret = -1;
+    //     uint8_t data[16];
+    //     memset(data, 0, 16);
+    //     if ((ret = bsfs_fread(&bsfs_context, data, 1, 16, &kernel_file)) < 0) {
+    //         PANIC("stage2: bsfs_fread returned %i", ret);
+    //     }
+    //     for (size_t i = 0; i < ret; i += 2) {
+    //         if (i == ret - 2)
+    //             printf("%02x%02x", data[i], data[i + 1]);
+    //         else
+    //             printf("%02x%02x ", data[i], data[i + 1]);
+    //     }
+    //     printf("\n");
+    // }
+    // bsfs_fclose(&kernel_file);
+    // arena_reset();
 
     while(1);
 }
