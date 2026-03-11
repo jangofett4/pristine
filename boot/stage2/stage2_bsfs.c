@@ -8,7 +8,7 @@
 #include "stage2_disk.h"
 #include "stage2_string.h"
 #include "stage2_memory.h"
-#include "printf.h"
+#include "lib32/printf/printf.h"
 
 static uint8_t _disk_buf[DISK_READ_MAX_SECTORS * DISK_SECTOR_SIZE];
 
@@ -107,7 +107,6 @@ int bsfs_fopen(const BsfsContext *context, const char* path, BsfsFile *file_out)
         return BSFS_FOPEN_BUF_UNALIGNED;
     }
 
-    file_out->local_block_idx = UINT32_MAX;
     file_out->position = 0;
     file_out->eof = 0;
 
@@ -148,7 +147,6 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
                 return BSFS_FREAD_DISK_READ_ERROR;
             }
             bufptr += context->header->block_size;
-            file->local_block_idx = file->position >> __builtin_ctz(context->header->block_size);
         }
         else
         {
@@ -165,9 +163,27 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
 }
 #undef DIV_CEIL
 
+int bsfs_fseeko(const BsfsContext *context, BsfsFile *file, uint64_t offset, int whence) {
+    if (whence == BSFS_FSEEKO_CUR) {
+        file->position += offset;
+    } else if (whence == BSFS_FSEEKO_SET) {
+        file->position = offset;
+    } else if (whence == BSFS_FSEEKO_END) {
+        file->position = file->inode->size - offset;
+    }
+
+    if (file->position >= file->inode->size) {
+        file->position = file->inode->size;
+        file->eof = 1;
+    } else {
+        file->eof = 0;
+    }
+    
+    return 0;
+}
+
 int bsfs_fclose(BsfsFile *file) {
     file->inode = 0;
-    file->local_block_idx = UINT32_MAX;
     file->position = UINT64_MAX;
     return 0;
 }

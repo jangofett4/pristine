@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
 #include "stage2_disk.h"
 
 #define ATA_PIO_PORT_DATAREGISTER 0x1F0

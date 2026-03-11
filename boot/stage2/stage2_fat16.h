@@ -5,8 +5,8 @@
 
 #pragma once
 
+#include <stdint.h>
 #include "stage2_disk.h"
-#include "stage2_kstdint.h"
 
 typedef struct {
     uint8_t instr[3];               // Assembly instructions (likely jmp 3c, nop)

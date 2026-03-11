@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
 
 #define PIC_MASTER_CMD_PORT 0x20
 #define PIC_SLAVE_CMD_PORT  0xA0

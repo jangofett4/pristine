@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
 
 #define VESA_INFO_ADDR      0x1000
 #define VESA_MODE_INFO_ADDR 0x1200

@@ -7,7 +7,7 @@
 #include "stage2_idt.h"
 #include "stage2_common.h"
 #include "stage2_pic.h"
-#include "printf.h"
+#include "lib32/printf/printf.h"
 
 // This is a bit big
 static IDT32ISRDispatch dispatch_table[48] = {0};

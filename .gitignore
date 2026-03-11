@@ -7,3 +7,5 @@ tools/bsfs/root
 tools/bsfs/bin
 tools/bsfs/hda.img
 tools/bsfs/.ignore
+.cache
+compile_commands.json

@@ -1,16 +1,16 @@
 ASM      = nasm
-ASMFLAGS = -f elf32
+ASMFLAGS = -f elf32 -g
 
 C        = clang
-COPT	 = -Werror=return-type -Wall -Wextra
-CFLAGS   = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
+COPT	 = -Werror=return-type -Wall -O0 -g -std=c23
+CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
            -fno-stack-protector \
-           -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
+		   -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
            -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
-S2CFLAGS = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
+CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
            -fno-stack-protector \
 		   -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
            -Iinclude -Ilib \
@@ -19,18 +19,26 @@ S2CFLAGS = -ffreestanding -nostdlib -c -m32 -g -std=c23 \
 
 LD       = ld.lld
 
-QEMU     = qemu-system-i386
-QEMUFLAGS = -m 128 -serial stdio -machine pc
+QEMU     = qemu-system-x86_64
+QEMUFLAGS = -m 256 -serial stdio -machine pc
+
+# External libraries
+LIB32_SRCS = $(shell find lib/lib32 -name "*.c")
+LIB32_OBJS = $(patsubst %.c, bin/%.o, $(LIB32_SRCS))
+
+LIB64_SRCS = $(shell find lib/lib64 -name "*.c")
+LIB64_OBJS = $(patsubst %.c, bin/%.o, $(LIB64_SRCS))
 
 # Kernel C sources (kernel/, drivers/, lib/)
-K_SRCS = $(shell find kernel drivers lib -name "*.c")
-K_OBJS = $(patsubst %.c, bin/%.o, $(K_SRCS))
+K_SRCS = $(shell find kernel drivers -name "*.c")
+K_OBJS = $(patsubst %.c, bin/%.o, $(K_SRCS)) bin/lib/lib64/printf/printf.o
 
-# Stage2 C sources (boot/*.c)
+# Stage2 C sources (boot/*.c) & assembly sources
 S2_SRCS		= $(shell find boot/stage2 -name "*.c")
 S2_ASMSRCS	= $(shell find boot/stage2 -name "*.asm")
-S2_OBJS 	= $(patsubst %.c, bin/%.o, $(S2_SRCS))
-S2_ASMOBJS	= $(patsubst %.asm, bin/%.o, $(S2_ASMSRCS)) bin/lib/printf.o
+
+S2_OBJS 	= $(patsubst %.c, bin/%.o, $(S2_SRCS)) bin/lib/lib32/printf/printf.o
+S2_ASMOBJS	= $(patsubst %.asm, bin/%.o, $(S2_ASMSRCS))
 
 S1_INCSRCS		= $(shell find boot/stage1 -name "*.inc")
 S1_ASMSRCS		= boot/stage1/stage1.asm
@@ -59,7 +67,7 @@ bin/boot/stage1/stage1.bin: bin/boot/stage1/stage1.elf
 # Stage2 gets its own include path for boot/ headers
 bin/boot/stage2/%.o: boot/stage2/%.c
 	@mkdir -p $(dir $@)
-	$(C) $(S2CFLAGS) -Iboot $< -o $@
+	$(C) $(CFLAGS32) -Iboot $< -o $@
 
 bin/boot/stage2/%.o: boot/stage2/%.asm
 	@mkdir -p $(dir $@)
@@ -71,10 +79,23 @@ bin/boot/stage2/stage2.elf: $(S2_OBJS) $(S2_ASMOBJS)
 bin/boot/stage2/stage2.bin: bin/boot/stage2/stage2.elf
 	objcopy -O binary $< $@
 
-# ---- Kernel ----
-bin/%.o: %.c
+# ---- Libs ----
+bin/lib/lib32/%.o: $(LIB32_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS) $< -o $@
+	$(C) $(CFLAGS32) $< -o $@
+
+bin/lib/lib64/%.o: $(LIB64_SRCS)
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS64) $< -o $@
+
+# ---- Kernel ----
+bin/kernel/%.o: kernel/%.c
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS64) $< -o $@
+
+bin/drivers/%.o: drivers/%.c
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS64) $< -o $@
 
 bin/kernel.elf: $(K_OBJS)
 	$(LD) -T kernel/linker_kernel.ld $^ -o $@

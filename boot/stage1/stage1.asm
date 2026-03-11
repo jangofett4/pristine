@@ -51,12 +51,12 @@ stage1_boot:
     cmp al, VESA_EXPECTED_BPP
     jne .stage1_boot_vesa_modes
 
-    ; try 1080p
+    ; try 720p
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.XResolution]
-    cmp ax, 1920
+    cmp ax, 1280
     jne .stage1_boot_vesa_try_720p
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.YResolution]
-    cmp ax, 1080
+    cmp ax, 720
     jne .stage1_boot_vesa_try_720p
     mov [boot_vesa_1080p], cx
     jmp .stage1_boot_vesa_modes
@@ -64,10 +64,10 @@ stage1_boot:
 .stage1_boot_vesa_try_720p:
     ; try 720p
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.XResolution]
-    cmp ax, 1280
+    cmp ax, 1024
     jne .stage1_boot_vesa_try_1024
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.YResolution]
-    cmp ax, 720
+    cmp ax, 768
     jne .stage1_boot_vesa_try_1024
     mov [boot_vesa_720p], cx
     jmp .stage1_boot_vesa_modes
@@ -75,10 +75,10 @@ stage1_boot:
 .stage1_boot_vesa_try_1024:
     ; try 1024x768
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.XResolution]
-    cmp ax, 1024
+    cmp ax, 800
     jne .stage1_boot_vesa_modes
     mov ax, [VESA_VBE_MODE_BUF + VbeModeInfoBlock.YResolution]
-    cmp ax, 768
+    cmp ax, 600
     jne .stage1_boot_vesa_modes
     mov [boot_vesa_1024], cx
     jmp .stage1_boot_vesa_modes

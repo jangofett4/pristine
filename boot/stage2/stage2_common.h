@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
+#include "lib32/printf/printf.h"
 
 void uint32_to_str(char buf[10], uint32_t value);
 

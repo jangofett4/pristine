@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
+#include <stddef.h>
 #include "stage2_vesa.h"
 
 typedef struct {

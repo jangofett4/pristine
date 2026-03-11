@@ -8,7 +8,7 @@
 #include "stage2_disk.h"
 #include "stage2_common.h"
 #include "stage2_memory.h"
-#include "printf.h"
+#include "lib32/printf/printf.h"
 
 const DiskOpsVtable *_default_ops;
 Fat16Header header;

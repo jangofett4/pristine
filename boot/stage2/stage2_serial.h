@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
 
 #define SERIAL_COM1 0x3F8
 #define SERIAL_COM2 0x2F8

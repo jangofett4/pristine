@@ -9,7 +9,7 @@
 #include "stage2_common.h"
 #include "stage2_memory.h"
 #include "stage2_io.h"
-#include "printf.h"
+#include "lib32/printf/printf.h"
 
 static uint16_t _ata_buffer_identify[256] = {0};
 

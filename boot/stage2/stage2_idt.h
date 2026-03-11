@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stdint.h>
+#include <stddef.h>
 
 #define IDT32_SIZE 48
 

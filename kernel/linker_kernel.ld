@@ -1,7 +1,7 @@
 ENTRY(kmain)
 SECTIONS
 {
-    . = 0x80000;
+    . = 0x200000;
     .text : { *(.text*) }
     .rodata : { *(.rodata*) }
     .data : { *(.data*) }

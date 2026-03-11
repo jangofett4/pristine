@@ -7,7 +7,6 @@
 #include "stage2_video.h"
 #include "stage2_vesa.h"
 #include "stage2_memory.h"
-#include "stage2_kstdint.h"
 
 Video *_ptr_video_default;
 
@@ -44,9 +43,9 @@ void video_putch(Video *video, char ch) {
         if (video->row >= video->height)
             video_scroll(video, 1);
 
-        uint32_t *pixel = video->address + video->row * video->bytes_per_scanline + video->column * video->bytes_per_pixel;
+        uint32_t *pixel = (uint32_t*)(video->address + video->row * video->bytes_per_scanline + video->column * video->bytes_per_pixel);
         for (size_t i = 0; i < _font.size; i++) {
-            const uint8_t rowdata = _font_glyphs[ch][i];
+            const uint8_t rowdata = _font_glyphs[(int)ch][i];
             uint32_t *row = (uint32_t*)((uint8_t*)pixel + i * video->bytes_per_scanline);
             row[0] = (rowdata >> 7 & 1) ? video->color : 0;
             row[1] = (rowdata >> 6 & 1) ? video->color : 0;

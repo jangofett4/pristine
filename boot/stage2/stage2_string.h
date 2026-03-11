@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "stage2_kstdint.h"
+#include <stddef.h>
 
 size_t strlen(const char str[]);
 int strcmp(const char *lhs, const char *rhs);
