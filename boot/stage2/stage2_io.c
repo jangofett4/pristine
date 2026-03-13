@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_io.h"
+#include "include/stage2_io.h"
 
 uint8_t io_inb(uint16_t port) {
     uint8_t result;

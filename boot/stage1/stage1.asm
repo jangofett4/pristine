@@ -16,6 +16,8 @@ stage1_boot:
     mov sp, 0x7C00
     mov [boot_drive], dl 
 
+    call stage1_memmap_get
+
     call stage1_vesa_get_info
     cmp ax, 0x4f
     je .stage1_boot_vesa_vbe_found
@@ -141,6 +143,7 @@ stage1_boot:
 %include 'boot/stage1/stage1_common.inc'
 %include 'boot/stage1/stage1_gdt.inc'
 %include 'boot/stage1/stage1_vesa.inc'
+%include 'boot/stage1/stage1_memmap.inc'
 
 section .data
 boot_vesa_1080p:                  dw 0xffff

@@ -5,8 +5,9 @@
 
 #pragma once
 
-#include <stdint.h>
 #include "stage2_disk.h"
+
+#include <stdint.h>
 
 #define ATA_PIO_PORT_DATAREGISTER 0x1F0
 #define ATA_PIO_PORT_FEATURES     0x1F1

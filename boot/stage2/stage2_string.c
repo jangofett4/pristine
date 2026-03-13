@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_string.h"
+#include "include/stage2_string.h"
 
 size_t strlen(const char str[]) {
     size_t len = 0;

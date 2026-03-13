@@ -4,25 +4,30 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <common/bootinfo.h>
 #include <stdint.h>
 #define KERNEL_LOAD_ADDR 0x200000
 
-#include "stage2_ata_pio.h"
-#include "stage2_bsfs.h"
-#include "stage2_common.h"
-#include "stage2_disk.h"
-#include "stage2_idt.h"
-#include "stage2_io.h"
-#include "stage2_memory.h"
-#include "stage2_paging.h"
-#include "stage2_pic.h"
-#include "stage2_serial.h"
-#include "stage2_vesa.h"
-#include "stage2_video.h"
+#include "include/stage2_ata_pio.h"
+#include "include/stage2_bsfs.h"
+#include "include/stage2_common.h"
+#include "include/stage2_disk.h"
+#include "include/stage2_idt.h"
+#include "include/stage2_io.h"
+#include "include/stage2_memory.h"
+#include "include/stage2_paging.h"
+#include "include/stage2_pic.h"
+#include "include/stage2_serial.h"
+#include "include/stage2_vesa.h"
+#include "include/stage2_video.h"
 
-#include "elf.h"
+#include <common/memmap.h>
+#include <common/elf.h>
 
 #include "lib32/printf/printf.h"
+
+static MemmapEntry memmap[MEMMAP_MAX_ITEMS];
+static BootInfo bootinfo = {0};
 
 static IDT32Entry idt[IDT32_SIZE];
 
@@ -45,6 +50,46 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     VesaVbeModeInfo vesa_mode_info = vesa_vbe_get_mode_info();
 
     printf("Stage 2 bootloader started\n");
+
+    printf("Getting memory map...\n");
+    uint16_t memmap_count = *(uint16_t*)MEMMAP_COUNT_ADDR;
+    printf("Number of memory map entries: %u\n", memmap_count);
+    MemmapEntry *memmap_entries = (MemmapEntry*)MEMMAP_ADDR;
+    for (size_t i = 0; i < memmap_count; i++) {
+        if (i >= MEMMAP_MAX_ITEMS) {
+            PANIC("stage2: memory map exceeds maximum items of %i", MEMMAP_MAX_ITEMS);
+        }
+        MemmapEntry *entry = memmap_entries + i;
+        memmap[i] = *entry;
+        uint64_t entry_base = (uint64_t)entry->BaseAddrHigh << 32 | (uint64_t)entry->BaseAddrLow;
+        uint64_t entry_size = (uint64_t)entry->LengthHigh << 32 | (uint64_t)entry->LengthLow;
+        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", entry_base, entry_base + entry_size, entry_size / 1024);
+        switch (entry->Type) {
+            case 1:
+                printf("Usable");
+                break;
+            case 2:
+                printf("Reserved");
+                break;
+            case 3:
+                printf("ACPI");
+                break;
+            case 4:
+                printf("NVS");
+                break;
+            case 5:
+                printf("Unusable");
+                break;
+            case 6:
+                printf("Disabled");
+                break;
+            default:
+                printf("Unknown");
+                break;
+        }
+        printf("\n");
+    }
+
     printf("Setting up interrupts...\n");
 
     IDT32ISRHandler isr_table[] = {
@@ -62,7 +107,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
 
     IDT32Ptr idt_ptr;
     idt_ptr.limit = (IDT32_SIZE * sizeof(IDT32Entry)) - 1;
-    idt_ptr.base = (uint32_t)&idt;
+    idt_ptr.base = (uint32_t)(uintptr_t)&idt;
 
     idt32_load_idtr(&idt_ptr);
     pic_init();
@@ -264,8 +309,11 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     for (size_t i = 0; i < 8; i++) {
       paging_set_level_3_map(0, 0, i, i * 0x200000);
     }
+    paging_set_level_3_map(0, 0, 8, 0);
 
-    kernel_entry(0x1000, kernel_elf_hdr.e_entry);
+    bootinfo.memory_map_addr = (uint32_t)(uintptr_t)&memmap;
+
+    kernel_entry(0x1000, kernel_elf_hdr.e_entry, &bootinfo);
 
     while (1);
 }

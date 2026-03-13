@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_idt.h"
-#include "stage2_common.h"
-#include "stage2_pic.h"
+#include "include/stage2_idt.h"
+#include "include/stage2_common.h"
+#include "include/stage2_pic.h"
 #include "lib32/printf/printf.h"
 
 // This is a bit big

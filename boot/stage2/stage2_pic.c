@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_pic.h"
-#include "stage2_io.h"
-#include "stage2_idt.h"
+#include "include/stage2_pic.h"
+#include "include/stage2_io.h"
+#include "include/stage2_idt.h"
 
 void _pic_io_wait() {
     io_outb(0x80, 0x00);

@@ -5,15 +5,13 @@ C        = clang
 COPT	 = -Werror=return-type -Wall -O0 -g -std=c23
 CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
            -fno-stack-protector \
-		   -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
            -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
 CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
            -fno-stack-protector \
-		   -DPRINTF_DISABLE_SUPPORT_LONG_LONG \
-           -Iinclude -Ilib \
+           -Iboot/stage2 -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
@@ -29,9 +27,13 @@ LIB32_OBJS = $(patsubst %.c, bin/%.o, $(LIB32_SRCS))
 LIB64_SRCS = $(shell find lib/lib64 -name "*.c")
 LIB64_OBJS = $(patsubst %.c, bin/%.o, $(LIB64_SRCS))
 
+COMPILER_RT32_PATH := $(shell clang -m32 -print-resource-dir)/lib/linux/libclang_rt.builtins-i386.a
+COMPILER_RT64_PATH := $(shell clang -m64 -print-resource-dir)/lib/linux/libclang_rt.builtins-x86_64.a
+
 # Kernel C sources (kernel/, drivers/, lib/)
-K_SRCS = $(shell find kernel drivers -name "*.c")
-K_OBJS = $(patsubst %.c, bin/%.o, $(K_SRCS)) bin/lib/lib64/printf/printf.o
+K_SRCS     = $(shell find kernel drivers -name "*.c")
+K_OBJS     = $(patsubst %.c, bin/%.o, $(K_SRCS)) bin/lib/lib64/printf/printf.o
+K_BUILTINS = $(LIBGCC64_PATH)
 
 # Stage2 C sources (boot/*.c) & assembly sources
 S2_SRCS		= $(shell find boot/stage2 -name "*.c")
@@ -39,6 +41,8 @@ S2_ASMSRCS	= $(shell find boot/stage2 -name "*.asm")
 
 S2_OBJS 	= $(patsubst %.c, bin/%.o, $(S2_SRCS)) bin/lib/lib32/printf/printf.o
 S2_ASMOBJS	= $(patsubst %.asm, bin/%.o, $(S2_ASMSRCS))
+
+S2_BUILTINS = $(LIBGCC32_PATH)
 
 S1_INCSRCS		= $(shell find boot/stage1 -name "*.inc")
 S1_ASMSRCS		= boot/stage1/stage1.asm
@@ -73,8 +77,8 @@ bin/boot/stage2/%.o: boot/stage2/%.asm
 	@mkdir -p $(dir $@)
 	$(ASM) -f elf32 $< -o $@
 
-bin/boot/stage2/stage2.elf: $(S2_OBJS) $(S2_ASMOBJS)
-	$(LD) -T boot/stage2/linker_stage2.ld $^ -o $@
+bin/boot/stage2/stage2.elf: $(S2_OBJS) $(S2_ASMOBJS) 
+	$(LD) -T boot/stage2/linker_stage2.ld $^ $(COMPILER_RT32_PATH) -o $@ 
 
 bin/boot/stage2/stage2.bin: bin/boot/stage2/stage2.elf
 	objcopy -O binary $< $@
@@ -98,7 +102,7 @@ bin/drivers/%.o: drivers/%.c
 	$(C) $(CFLAGS64) $< -o $@
 
 bin/kernel.elf: $(K_OBJS)
-	$(LD) -T kernel/linker_kernel.ld $^ -o $@
+	$(LD) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@
 
 # ---- Final image ----
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf

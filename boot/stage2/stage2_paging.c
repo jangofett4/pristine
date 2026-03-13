@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_paging.h"
-#include "stage2_memory.h"
+#include "include/stage2_paging.h"
+#include "include/stage2_memory.h"
 
 uint64_t *volatile _pml4;
 uint64_t *volatile _pdpt;

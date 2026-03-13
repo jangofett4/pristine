@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_video.h"
-#include "stage2_vesa.h"
-#include "stage2_memory.h"
+#include "include/stage2_video.h"
+#include "include/stage2_vesa.h"
+#include "include/stage2_memory.h"
 
 Video *_ptr_video_default;
 

@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_fat16.h"
-#include "stage2_disk.h"
-#include "stage2_common.h"
-#include "stage2_memory.h"
+#include "include/stage2_fat16.h"
+#include "include/stage2_disk.h"
+#include "include/stage2_common.h"
+#include "include/stage2_memory.h"
 #include "lib32/printf/printf.h"
 
 const DiskOpsVtable *_default_ops;

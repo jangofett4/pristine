@@ -7,8 +7,10 @@
 ; void kernel_entry(uint32_t pml4_address, uint64_t kernel_entry_address)
 global kernel_entry
 kernel_entry:
-    mov edi, [esp+8]
-    mov esi, [esp+12]
+    mov edi, [esp+8]    ; Low 32 bits of kernel load address
+    mov esi, [esp+12]   ; High 32 bits of kernel load address
+    xor ebx, ebx
+    mov ebx, [esp+16]   ; 32 bits BootInfo pointer
 
     ; 64 bit GDT
     lgdt [stage2_gdt_ptr]
@@ -37,15 +39,20 @@ kernel_entry:
 
 [bits 64]
 .stage2_farjump:
-    mov rax, 0x10
+    mov ax, 0x10
     mov ds, rax
     mov es, rax
     mov fs, rax
     mov gs, rax
     mov ss, rax
+    ; TODO: its also a good idea to setup a new stack here
     shl rsi, 32
     or rdi, rsi
-    jmp rdi
+    mov rax, rdi
+
+    mov edi, ebx
+
+    jmp rax
 
 %macro GDT_ENTRY 4
     dw (%2 & 0xFFFF)

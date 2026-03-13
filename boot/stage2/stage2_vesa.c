@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_vesa.h"
-#include "stage2_memory.h"
+#include "include/stage2_vesa.h"
+#include "include/stage2_memory.h"
 
 VesaVbeInfo vesa_vbe_get_info(void) {
     VesaVbeInfo *info = (VesaVbeInfo*)VESA_INFO_ADDR;

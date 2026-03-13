@@ -6,7 +6,7 @@
 
 // TODO: I should probably use builtin functions instead
 
-#include "stage2_memory.h"
+#include "include/stage2_memory.h"
 
 // Very crude memcpy, using uint32_t (or bigger) would be better
 void memcpy(void* dst, const void* src, size_t count) {

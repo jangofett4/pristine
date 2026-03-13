@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_bsfs.h"
-#include "stage2_disk.h"
-#include "stage2_string.h"
-#include "stage2_memory.h"
+#include "include/stage2_bsfs.h"
+#include "include/stage2_disk.h"
+#include "include/stage2_string.h"
+#include "include/stage2_memory.h"
 #include "lib32/printf/printf.h"
 
 static uint8_t _disk_buf[DISK_READ_MAX_SECTORS * DISK_SECTOR_SIZE];

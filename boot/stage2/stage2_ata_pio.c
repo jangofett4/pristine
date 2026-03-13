@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_ata_pio.h"
-#include "stage2_disk.h"
-#include "stage2_common.h"
-#include "stage2_memory.h"
-#include "stage2_io.h"
+#include "include/stage2_ata_pio.h"
+#include "include/stage2_disk.h"
+#include "include/stage2_common.h"
+#include "include/stage2_memory.h"
+#include "include/stage2_io.h"
 #include "lib32/printf/printf.h"
 
 static uint16_t _ata_buffer_identify[256] = {0};

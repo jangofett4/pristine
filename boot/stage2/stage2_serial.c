@@ -11,8 +11,8 @@
  * License: MIT
  */
 
-#include "stage2_serial.h"
-#include "stage2_io.h"
+#include "include/stage2_serial.h"
+#include "include/stage2_io.h"
 
 static Serial *__ptr_serial_default;
 

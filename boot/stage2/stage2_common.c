@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "stage2_video.h"
-#include "stage2_serial.h"
+#include "include/stage2_video.h"
+#include "include/stage2_serial.h"
 
 void _putchar(char ch) {
     Serial* serial = serial_get_default();
