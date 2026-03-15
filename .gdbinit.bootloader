@@ -4,6 +4,8 @@ symbol-file bin/boot/stage2/stage2.elf
 add-symbol-file root/kernel.elf
 b *0x7c00
 b stage2_boot
+b idt32_isr_handler
+b idt64_isr_handler
 b paging_asm_enable
 b kmain
 layout split

@@ -45,11 +45,11 @@ kernel_entry:
     mov fs, rax
     mov gs, rax
     mov ss, rax
-    ; TODO: its also a good idea to setup a new stack here
     shl rsi, 32
     or rdi, rsi
     mov rax, rdi
 
+    mov rsp, (0x200000 - 8)
     mov edi, ebx
 
     jmp rax

@@ -5,9 +5,11 @@
 
 #pragma once
 
-#include "stage2_disk.h"
+#include <common/disk.h>
 
 #include <stdint.h>
+
+#define ATA_PIO_SECTOR_SIZE       512
 
 #define ATA_PIO_PORT_DATAREGISTER 0x1F0
 #define ATA_PIO_PORT_FEATURES     0x1F1

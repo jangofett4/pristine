@@ -32,8 +32,8 @@ typedef struct {
 } __attribute__((packed)) IDT32ISRFrame;
 
 typedef enum {
-  ISR_INTERRUPT,
-  ISR_TRAP  
+  IDT32_ISR_INTERRUPT,
+  IDT32_ISR_TRAP  
 } IDT32ISRHandlerType;
 
 typedef struct {
@@ -43,11 +43,11 @@ typedef struct {
 
 typedef void (*IDT32ISRDispatch)(IDT32ISRFrame *frame);
 
-#define ISR_I(i) {.type=ISR_INTERRUPT,.handler=isr_##i}
-#define ISR_T(i) {.type=ISR_TRAP,.handler=isr_##i}
+#define IDT32_ISR_I(i) {.type=IDT32_ISR_INTERRUPT,.handler=idt32_isr_##i}
+#define IDT32_ISR_T(i) {.type=IDT32_ISR_TRAP,.handler=idt32_isr_##i}
 
-#define IDT_ATTR_INTERRUPT  0x8E
-#define IDT_ATTR_TRAP       0x8F
+#define IDT32_IDT_ATTR_INTERRUPT  0x8E
+#define IDT32_IDT_ATTR_TRAP       0x8F
 
 void idt32_load_idtr(IDT32Ptr *idt_ptr);
 void idt32_set_entry_int(IDT32Entry *idt_table, uint32_t index, uint32_t handler);
@@ -58,35 +58,35 @@ void idt32_disable_interrupts(void);
 void idt32_debug_print_frame(IDT32ISRFrame *frame);
 void idt32_set_dispatch(uint8_t vector, IDT32ISRDispatch handler);
 
-extern void isr_0(void);
-extern void isr_1(void);
-extern void isr_2(void);
-extern void isr_3(void);
-extern void isr_4(void);
-extern void isr_5(void);
-extern void isr_6(void);
-extern void isr_7(void);
-extern void isr_8(void);
-extern void isr_9(void);
-extern void isr_10(void);
-extern void isr_11(void);
-extern void isr_12(void);
-extern void isr_13(void);
-extern void isr_14(void);
-extern void isr_15(void);
-extern void isr_16(void);
-extern void isr_17(void);
-extern void isr_18(void);
-extern void isr_19(void);
-extern void isr_20(void);
-extern void isr_21(void);
-extern void isr_22(void);
-extern void isr_23(void);
-extern void isr_24(void);
-extern void isr_25(void);
-extern void isr_26(void);
-extern void isr_27(void);
-extern void isr_28(void);
-extern void isr_29(void);
-extern void isr_30(void);
-extern void isr_31(void);
+extern void idt32_isr_0(void);
+extern void idt32_isr_1(void);
+extern void idt32_isr_2(void);
+extern void idt32_isr_3(void);
+extern void idt32_isr_4(void);
+extern void idt32_isr_5(void);
+extern void idt32_isr_6(void);
+extern void idt32_isr_7(void);
+extern void idt32_isr_8(void);
+extern void idt32_isr_9(void);
+extern void idt32_isr_10(void);
+extern void idt32_isr_11(void);
+extern void idt32_isr_12(void);
+extern void idt32_isr_13(void);
+extern void idt32_isr_14(void);
+extern void idt32_isr_15(void);
+extern void idt32_isr_16(void);
+extern void idt32_isr_17(void);
+extern void idt32_isr_18(void);
+extern void idt32_isr_19(void);
+extern void idt32_isr_20(void);
+extern void idt32_isr_21(void);
+extern void idt32_isr_22(void);
+extern void idt32_isr_23(void);
+extern void idt32_isr_24(void);
+extern void idt32_isr_25(void);
+extern void idt32_isr_26(void);
+extern void idt32_isr_27(void);
+extern void idt32_isr_28(void);
+extern void idt32_isr_29(void);
+extern void idt32_isr_30(void);
+extern void idt32_isr_31(void);

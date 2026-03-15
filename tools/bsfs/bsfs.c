@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "bsfs.h"
+#include <bsfs.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -141,8 +141,10 @@ void bsfs_bitmap_clear_contiguous(uint8_t *bitmap, const uint64_t area_bit_count
 
 uint32_t bsfs_bitmap_find_contiguous(uint8_t *bitmap, const uint32_t area_count, const uint32_t bit_count) {
     BSFS_PANIC("bsfs_bitmap_find_contiguous: unimplemented");
+    return UINT32_MAX;
 }
 
 uint32_t bsfs_alloc_block_contiguous(BsfsHeader *header, const uint32_t area_count, uint8_t *block_bitmap) {
     BSFS_PANIC("bsfs_alloc_block_contiguous: unimplemented");
+    return UINT32_MAX;
 }

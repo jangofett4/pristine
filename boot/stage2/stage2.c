@@ -8,46 +8,48 @@
 #include <stdint.h>
 #define KERNEL_LOAD_ADDR 0x200000
 
-#include "include/stage2_ata_pio.h"
-#include "include/stage2_bsfs.h"
 #include "include/stage2_common.h"
-#include "include/stage2_disk.h"
-#include "include/stage2_idt.h"
-#include "include/stage2_io.h"
-#include "include/stage2_memory.h"
 #include "include/stage2_paging.h"
-#include "include/stage2_pic.h"
-#include "include/stage2_serial.h"
-#include "include/stage2_vesa.h"
 #include "include/stage2_video.h"
 
-#include <common/memmap.h>
+#include <common/io.h>
 #include <common/elf.h>
+#include <common/disk.h>
+#include <common/idt32.h>
+#include <common/pic.h>
+#include <common/paging.h>
+#include <common/string.h>
+#include <common/serial.h>
+#include <common/memmap.h>
+#include <common/arena.h>
+#include <common/vesa.h>
+#include <common/bsfs/bsfs.h>
+#include <common/bsfs/bsfs_ops.h>
+#include <common/bsfs/bsfs_defaults.h>
+#include <drivers/storage/ata/atapio.h>
 
 #include "lib32/printf/printf.h"
 
+// information to be passed to kernel
+static RawBootInfo bootinfo = {0};
 static MemmapEntry memmap[MEMMAP_MAX_ITEMS];
-static BootInfo bootinfo = {0};
+static VesaVbeInfo vesa_vbe_info;
+static VesaVbeModeInfo vesa_vbe_mode_info;
 
 static IDT32Entry idt[IDT32_SIZE];
 
-static uint8_t disk_buf[DISK_READ_MAX_SECTORS * 512];
-// static uint8_t block_buf[BSFS_BLOCKSIZE];
+static uint8_t disk_buf[DISK_READ_MAX_BLOCKS * ATA_PIO_SECTOR_SIZE];
 
-static Video video;
 static Serial serial;
 
-void keyboard_handler(IDT32ISRFrame *frame) {
-    uint8_t scancode = io_inb(0x60);
-    printf("Scancode 0x%x\n", scancode);
-}
+#define PIC_ISR_I(i, w) {.type=IDT##w_ISR_INTERRUPT,.handler=idt##w_isr_##i}
+#define PIC_ISR_T(i, w) {.type=IDT##w_ISR_TRAP,.handler=idt##w_isr_##i}
+
+extern void kernel_entry(uint32_t pml4_address, uint64_t kernel_entry_address, RawBootInfo *bootinfo);
 
 __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     serial_init(&serial, 0x3F8);
     serial_set_default(&serial);
-
-    // VesaVbeInfo vesa_info = vesa_vbe_get_info();
-    VesaVbeModeInfo vesa_mode_info = vesa_vbe_get_mode_info();
 
     printf("Stage 2 bootloader started\n");
 
@@ -93,14 +95,28 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     printf("Setting up interrupts...\n");
 
     IDT32ISRHandler isr_table[] = {
-        ISR_T(0),  ISR_T(1),  ISR_I(2),  ISR_T(3),  ISR_T(4),  ISR_T(5),
-        ISR_T(6),  ISR_T(7),  ISR_T(8),  ISR_T(9),  ISR_T(10), ISR_T(11),
-        ISR_T(12), ISR_T(13), ISR_T(14), ISR_I(15), ISR_T(16), ISR_T(17),
-        ISR_T(18), ISR_T(19), ISR_T(20), ISR_T(21), ISR_I(22), ISR_I(23),
-        ISR_I(24), ISR_I(25), ISR_I(26), ISR_I(27), ISR_I(28), ISR_I(29),
-        ISR_I(30), ISR_I(31), ISR_I(32), ISR_I(33), ISR_I(34), ISR_I(35),
-        ISR_I(36), ISR_I(37), ISR_I(38), ISR_I(39), ISR_I(40), ISR_I(41),
-        ISR_I(42), ISR_I(43), ISR_I(44), ISR_I(45), ISR_I(46), ISR_I(47),
+        IDT32_ISR_T(0),  IDT32_ISR_T(1),  IDT32_ISR_I(2),  IDT32_ISR_T(3),  IDT32_ISR_T(4),  IDT32_ISR_T(5),
+        IDT32_ISR_T(6),  IDT32_ISR_T(7),  IDT32_ISR_T(8),  IDT32_ISR_T(9),  IDT32_ISR_T(10), IDT32_ISR_T(11),
+        IDT32_ISR_T(12), IDT32_ISR_T(13), IDT32_ISR_T(14), IDT32_ISR_I(15), IDT32_ISR_T(16), IDT32_ISR_T(17),
+        IDT32_ISR_T(18), IDT32_ISR_T(19), IDT32_ISR_T(20), IDT32_ISR_T(21), IDT32_ISR_I(22), IDT32_ISR_I(23),
+        IDT32_ISR_I(24), IDT32_ISR_I(25), IDT32_ISR_I(26), IDT32_ISR_I(27), IDT32_ISR_I(28), IDT32_ISR_I(29),
+        IDT32_ISR_I(30), IDT32_ISR_I(31), 
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_32 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_33 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_34 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_35 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_36 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_37 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_38 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_39 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_40 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_41 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_42 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_43 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_44 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_45 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_46 },
+        {.type=IDT32_ISR_INTERRUPT, .handler = pic_isr_47 },
     };
 
     idt32_set_entries(idt, isr_table, 48);
@@ -113,9 +129,6 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     pic_init();
 
     idt32_enable_interrupts();
-
-    idt32_set_dispatch(33, keyboard_handler);
-    // pic_unmask_irq(1); // Keyboard
 
     AtaPioStatus atapio_status;
 
@@ -147,9 +160,9 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
 
     DiskOpsVtable disk_ops = ata_pio_get_disk_ops();
 
-    const uint32_t bsfs_offset = 16 * 4096;
+    const uint32_t bsfs_offset = PRISTINE_BSFS_OFFSET * PRISTINE_BSFS_BLOCKSIZE;
 
-    disk_ops.read(bsfs_offset / 512, 1, disk_buf);
+    disk_ops.read(bsfs_offset / ATA_PIO_SECTOR_SIZE, 1, disk_buf);
     BsfsHeader header;
     memcpy(&header, disk_buf, sizeof(BsfsHeader));
 
@@ -168,60 +181,64 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     printf(" Root Inode:        0x%04x\n", header.root_inode);
     printf(" Inode Table Start: 0x%04x\n", header.inode_table_start);
 
-    if (header.block_size != BSFS_BLOCKSIZE) {
+    if (header.block_size != PRISTINE_BSFS_BLOCKSIZE) {
         PANIC("bsfs: image has %u byte blocks, cannot process", header.block_size);
     }
 
-    BsfsContext bsfs_context = {.header = &header, .disk_ops = &disk_ops};
-    int fread_count = -1;
+    // arena_reset();
+    // BsfsFile font_file = {
+    //     .buf = arena_alloc(header.block_size, 1), 
+    //     .bufsize = header.block_size
+    // };
+    // if (bsfs_fopen(&bsfs_context, "/fonts/tamzen/Tamzen8x15.psf", &font_file) < 0) {
+    //     // TODO: instead of straight up panic, we can iterate over what we have,
+    //     // for now this will have to do
+    //     PANIC("stage2: /fonts/tamzen/Tamzen8x16.psf not found!");
+    // }
+    // Psf1Header psf1header;
+    // if ((fread_count = bsfs_fread(
+    //     &bsfs_context, 
+    //     &psf1header, 
+    //     sizeof(Psf1Header), 
+    //     1,
+    //     &font_file)) < 0
+    // ) {
+    //     PANIC("stage2: bsfs_fread returned %i", fread_count);
+    // }
 
-    arena_reset();
-    BsfsFile font_file = {
-        .buf = arena_alloc(header.block_size, 1), 
-        .bufsize = header.block_size
-    };
-    if (bsfs_fopen(&bsfs_context, "/fonts/tamzen/Tamzen8x15.psf", &font_file) < 0) {
-        // TODO: instead of straight up panic, we can iterate over what we have,
-        // for now this will have to do
-        PANIC("stage2: /fonts/tamzen/Tamzen8x16.psf not found!");
-    }
-    Psf1Header psf1header;
-    if ((fread_count = bsfs_fread(
-        &bsfs_context, 
-        &psf1header, 
-        sizeof(Psf1Header), 
-        1,
-        &font_file)) < 0
-    ) {
-        PANIC("stage2: bsfs_fread returned %i", fread_count);
-    }
+    // if (psf1header.magic[0] != 0x36 && psf1header.magic[1] != 0x04) {
+    //     PANIC("stage2: font file is not PSF1");
+    // }
 
-    if (psf1header.magic[0] != 0x36 && psf1header.magic[1] != 0x04) {
-        PANIC("stage2: font file is not PSF1");
-    }
+    // video_psf_set_font(psf1header);
+    // for (size_t i = 0; i < 256; i++) {
+    //     uint8_t *glyph = arena_alloc(psf1header.size, 1);
+    //     if ((fread_count = bsfs_fread(&bsfs_context, glyph, 1, psf1header.size, &font_file)) < 0) {
+    //         PANIC("stage2: malformed PSF1 font file");
+    //     }
+    //     int setglyph_ret = 0;
+    //     if ((setglyph_ret = video_psf_set_glyph(i, glyph, psf1header.size)) < 0) {
+    //         if (setglyph_ret == PSF_SET_GLYPH_SIZE_TOO_BIG) {
+    //             PANIC("psf_set_glyph: PSF1 glyph size too big");
+    //         } else {
+    //             PANIC("psf_set_glyph: unknown error");
+    //         }
+    //     }
+    // }
+    // bsfs_fclose(&font_file);
+    // arena_reset();
 
-    video_psf_set_font(psf1header);
-    for (size_t i = 0; i < 256; i++) {
-        uint8_t *glyph = arena_alloc(psf1header.size, 1);
-        if ((fread_count = bsfs_fread(&bsfs_context, glyph, 1, psf1header.size, &font_file)) < 0) {
-            PANIC("stage2: malformed PSF1 font file");
-        }
-        int setglyph_ret = 0;
-        if ((setglyph_ret = video_psf_set_glyph(i, glyph, psf1header.size)) < 0) {
-            if (setglyph_ret == PSF_SET_GLYPH_SIZE_TOO_BIG) {
-                PANIC("psf_set_glyph: PSF1 glyph size too big");
-            } else {
-                PANIC("psf_set_glyph: unknown error");
-            }
-        }
-    }
-    bsfs_fclose(&font_file);
-    arena_reset();
-
-    video_init(&video, &vesa_mode_info);
-    video_set_default(&video);
+    vesa_vbe_info = *(VesaVbeInfo*)VESA_INFO_ADDR;
+    vesa_vbe_mode_info = *(VesaVbeModeInfo*)VESA_MODE_INFO_ADDR;
 
     printf("Loading kernel...\n");
+
+    BsfsContext bsfs_context = {
+        .header = &header, 
+        .disk_ops = &disk_ops,
+        .phys_sector_size = ATA_PIO_SECTOR_SIZE
+    };
+    int fread_count = -1;
 
     arena_reset();
     BsfsFile kernel_file = {
@@ -262,13 +279,22 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
         PANIC("stage2: unable to load kernel.elf, malformed ELF binary");
     }
 
+    printf(" e_phentsize: %u\n", kernel_elf_hdr.e_phentsize);
+    printf(" Elf64Phdr:   %u\n", sizeof(Elf64Phdr));
+
     for (size_t ph = 0; ph < kernel_elf_hdr.e_phnum; ph++) {
         Elf64Phdr phdr;
+        uint64_t ph_offset = kernel_elf_hdr.e_phoff + (ph * kernel_elf_hdr.e_phentsize);
+
+        if (bsfs_fseeko(&bsfs_context, &kernel_file, ph_offset, BSFS_FSEEKO_SET) < 0) {
+            PANIC("stage2: unable to seek to program header at index %u", ph);
+        }
+
         if ((fread_count = bsfs_fread(&bsfs_context, &phdr, kernel_elf_hdr.e_phentsize, 1, &kernel_file)) < 0) {
             PANIC("stage2: unable to read program header at index %u", ph);
         }
-        if (phdr.p_memsz < phdr.p_filesz) {
-            PANIC("stage2: unable to load kernel.elf, p_filesz > p_memsz");
+        if (phdr.p_filesz > phdr.p_memsz) {
+            PANIC("stage2: unable to load kernel.elf, p_filesz > p_memsz (%llu, %llu)", phdr.p_filesz, phdr.p_memsz);
         }
 
         if (phdr.p_type == PT_LOAD) {
@@ -302,16 +328,49 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     bsfs_fclose(&kernel_file);
     arena_reset();
 
-    printf("Setting up 16 MiB identity mapped paging...\n");
-    paging_set_pml4_address(0x1000);
-    paging_set_pdpt_address(0x2000);
-    paging_set_pd_address(0x3000);
-    for (size_t i = 0; i < 8; i++) {
-      paging_set_level_3_map(0, 0, i, i * 0x200000);
+    printf("Setting up 4 MiB identity mapped paging...\n");
+    __pg_pml4[0] = (uint64_t)__pg_pdpt | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pdpt[0] = (uint64_t)__pg_pd   | PAGING_PDPT_DEFAULT_FLAGS;
+    __pg_pd[0]   = (uint64_t)__pg_pt0  | PAGING_PD_DEFAULT_FLAGS;
+    __pg_pd[1]   = (uint64_t)__pg_pt1  | PAGING_PD_DEFAULT_FLAGS;
+
+    for (uint64_t i = 0; i < 512; i++) {
+        __pg_pt0[i] = (i * 4096) | PAGING_PT_DEFAULT_FLAGS;
     }
-    paging_set_level_3_map(0, 0, 8, 0);
+
+    for (uint64_t i = 0; i < 512; i++) {
+        __pg_pt1[i] = (0x200000 + (i * 4096)) | PAGING_PT_DEFAULT_FLAGS;
+    }
+
+    // const uint64_t fb_base = vesa_vbe_mode_info.PhysBasePtr;
+    // const uint64_t fb_size = vesa_vbe_mode_info.YResolution * vesa_vbe_mode_info.BytesPerScanLine;
+    // const uint32_t fb_required_pages = (fb_size + 0x200000 - 1) / 0x200000;
+
+    // for (size_t i = 0; i < fb_required_pages; i++) {
+    //     uint64_t phys = fb_base + i * 0x200000;
+    //     paging_set_level_3_map(
+    //         PG_PML4_IDX(phys),
+    //         PG_PDPT_IDX(phys),
+    //         PG_PD_IDX(phys),
+    //         phys
+    //     );
+    // }
+
+    // kernel stack starts for KERNEL_LOAD_ADDR - 8, 16 KiB.
+    // we want to put a guard page there just in case
+    // uint64_t kernel_stack_guard = KERNEL_LOAD_ADDR - 5 * 4096;
+    // paging_set_level_4_guard(
+    //     PG_PML4_IDX(kernel_stack_guard), 
+    //     PG_PDPT_IDX(kernel_stack_guard), 
+    //     PG_PD_IDX(kernel_stack_guard), 
+    //     PG_PT_IDX(kernel_stack_guard)
+    // );
+
 
     bootinfo.memory_map_addr = (uint32_t)(uintptr_t)&memmap;
+    bootinfo.memory_map_count = memmap_count;
+    bootinfo.vesa_vbe_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_info;
+    bootinfo.vesa_vbe_mode_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_mode_info;
 
     kernel_entry(0x1000, kernel_elf_hdr.e_entry, &bootinfo);
 

@@ -1,6 +1,6 @@
 /*
  * Pristine
- * stage2_pic - PIC initialization & functions
+ * pic: PIC initialization & functions
  * SPDX-License-Identifier: MIT
  */
 

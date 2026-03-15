@@ -5,44 +5,19 @@
  */
 
 #include "include/stage2_paging.h"
-#include "include/stage2_memory.h"
 
-uint64_t *volatile _pml4;
-uint64_t *volatile _pdpt;
-uint64_t *volatile _pd;
-uint64_t *volatile _pt;
+#include <common/string.h>
+#include <stdint.h>
 
-void paging_set_pml4_address(uint64_t address) {
-    _pml4 = (uint64_t*)address;
-    memset((void*)_pml4, 0, 0x1000);
-}
 
-void paging_set_pdpt_address(uint64_t address) {
-    _pdpt = (uint64_t*)address;
-    memset((void*)_pdpt, 0, 0x1000);
-}
+#define PG_PML4_ADDRESS 0x1000
+#define PG_PDPT_ADDRESS 0x2000
+#define PG_PD_ADDRESS   0x3000
+#define PG_PT0_ADDRESS  0x4000
+#define PG_PT1_ADDRESS  0x5000
 
-void paging_set_pd_address(uint64_t address) {
-    _pd = (uint64_t*)address;
-    memset((void*)_pd, 0, 0x1000);
-}
-
-void paging_set_pt_address(uint64_t address) {
-    _pt = (uint64_t*)address;
-    memset((void*)_pt, 0, 0x1000);
-}
-
-uint64_t volatile* paging_get_pd(void) {
-    return _pd;
-}
-
-#define PAGING_PD_DEFAULT_FLAGS   0x83
-#define PAGING_PDPT_DEFAULT_FLAGS 0x03
-#define PAGING_PML4_DEFAULT_FLAGS 0x03
-
-void paging_set_level_3_map(uint16_t pml4idx, uint16_t pdptidx, uint16_t pdidx, uint64_t address) {
-    // TODO: would be proper to panic if address is not 2 MiB aligned
-    _pd[pdidx]     = PAGING_PD_DEFAULT_FLAGS | address;
-    _pdpt[pdptidx] = PAGING_PDPT_DEFAULT_FLAGS | (uint64_t)_pd;
-    _pml4[pml4idx] = PAGING_PML4_DEFAULT_FLAGS | (uint64_t)_pdpt;
-}
+uint64_t *volatile __pg_pml4 = (uint64_t*)PG_PML4_ADDRESS;
+uint64_t *volatile __pg_pdpt = (uint64_t*)PG_PDPT_ADDRESS;
+uint64_t *volatile __pg_pd   = (uint64_t*)PG_PD_ADDRESS;
+uint64_t *volatile __pg_pt0  = (uint64_t*)PG_PT0_ADDRESS;
+uint64_t *volatile __pg_pt1  = (uint64_t*)PG_PT1_ADDRESS;

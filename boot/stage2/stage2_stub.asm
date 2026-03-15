@@ -20,7 +20,7 @@ stage2_entry:
     mov fs, eax
     mov gs, eax
     mov ss, eax
-    mov esp, 0x00F00000
+    mov esp, (0x200000 - 8)
 
     mov edi, __bss_start
     mov ecx, __bss_end

@@ -1,7 +1,7 @@
 /*
  * Pristine
- * stage2_string: memory functions
- * SPDX-License-Identifier: MIT
+ * string: memory functions
+ * SPDX-License-Identifier MIT
  */
 
 #include <common/string.h>

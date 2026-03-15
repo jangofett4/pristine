@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <lib32/printf/printf.h>
-
 #include <common/bsfs/bsfs.h>
 #include <common/bsfs/bsfs_ops.h>
 #include <common/bsfs/bsfs_defaults.h>
@@ -14,7 +12,6 @@
 #include <common/string.h>
 
 uint32_t bsfs_resolve_path(const BsfsContext *context, const char* path) {
-    
     // this whole function stinks of not returning a proper error code
     // this is probably fine for stage 2 bootloader, however a better error
     // handling needs to be implemented for actual kernel

@@ -71,6 +71,3 @@ typedef struct {
     uint32_t MaxPixelClock;
     uint8_t  Reserved4[189];
 } __attribute__((packed)) VesaVbeModeInfo;
-
-VesaVbeInfo vesa_vbe_get_info(void);
-VesaVbeModeInfo vesa_vbe_get_mode_info(void);

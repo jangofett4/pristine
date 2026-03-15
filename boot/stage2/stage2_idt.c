@@ -4,10 +4,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "include/stage2_idt.h"
 #include "include/stage2_common.h"
-#include "include/stage2_pic.h"
-#include "lib32/printf/printf.h"
+
+#include <common/idt32.h>
+#include <common/pic.h>
+#include <common/io.h>
+#include <stdint.h>
+
+#include <lib32/printf/printf.h>
 
 // This is a bit big
 static IDT32ISRDispatch dispatch_table[48] = {0};
@@ -16,7 +20,7 @@ void idt32_set_entry_int(IDT32Entry *idt_table, uint32_t index, uint32_t handler
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].zero = 0;
-    idt_table[index].attr = IDT_ATTR_INTERRUPT;
+    idt_table[index].attr = IDT32_IDT_ATTR_INTERRUPT;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
 
@@ -24,16 +28,16 @@ void idt32_set_entry_trap(IDT32Entry *idt_table, uint32_t index, uint32_t handle
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].zero = 0;
-    idt_table[index].attr = IDT_ATTR_TRAP;
+    idt_table[index].attr = IDT32_IDT_ATTR_TRAP;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
 
 void idt32_set_entries(IDT32Entry *entries, IDT32ISRHandler *handlers, size_t size) {
     for (size_t i = 0; i < size; i++) {
-        if (handlers[i].type == ISR_INTERRUPT)
-            idt32_set_entry_int(entries, i, (uint32_t)handlers[i].handler);
+        if (handlers[i].type == IDT32_ISR_INTERRUPT)
+            idt32_set_entry_int(entries, i, (uint32_t)(uintptr_t)handlers[i].handler);
         else
-            idt32_set_entry_trap(entries, i, (uint32_t)handlers[i].handler);
+            idt32_set_entry_trap(entries, i, (uint32_t)(uintptr_t)handlers[i].handler);
     }
 }
 
@@ -64,10 +68,13 @@ void idt32_isr_handler(IDT32ISRFrame *frame) {
     }
 
     // EOI regardless of whether we had a handler
-    if (frame->int_no >= 40)
-        pic_isr_slave_return();
-    else if (frame->int_no >= 32)
-        pic_isr_master_return();
+    if (frame->int_no >= 40) {
+        io_outb(PIC_SLAVE_CMD_PORT, 0x20);
+        io_outb(PIC_MASTER_CMD_PORT, 0x20);
+    }
+    else if (frame->int_no >= 32) {
+        io_outb(PIC_MASTER_CMD_PORT, 0x20);
+    }
 }
 
 void idt32_debug_print_frame(IDT32ISRFrame *frame) {

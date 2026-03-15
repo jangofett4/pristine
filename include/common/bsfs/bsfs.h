@@ -6,7 +6,10 @@
 #pragma once
 
 #include <stdint.h>
+
+#if defined(DBSFS_DEBUG) && defined(DBSFS_STDLIB_EXISTS)
 #include <stdlib.h>
+#endif
 
 #define BSFS_MAGIC      0x42534653
 #define BSFS_VERSION    0x01020100
@@ -105,12 +108,18 @@ uint32_t bsfs_alloc_inode(BsfsHeader *header, uint8_t *inode_bitmap);
 // "allocates" a bsfs_dirent_t
 uint64_t bsfs_alloc_dirent(BsfsHeader *header, BsfsInode *inode, uint8_t *block_bitmap, uint8_t *megablock_bitmap);
 
+#if defined(DBSFS_STDLIB_EXISTS)
 #define BSFS_PANIC(fmt, ...) do { \
     fflush(stderr);\
     fflush(stdout);\
     fprintf(stderr, "\nPANIC %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
     exit(1); \
 } while(0);
+#else
+// TODO: this might need a better panic mechanism. To be honest, we shouldn't panic at all and return an error code instead
+#define BSFS_PANIC(fmt, ...) do { \
+} while(0);
+#endif
 
 // void bsfs_bitmap_set_contiguous(uint8_t *bitmap, const uint64_t area_bit_count, const uint64_t index);
 // void bsfs_bitmap_clear_contiguous(uint8_t *bitmap, const uint64_t area_count, const uint64_t index);

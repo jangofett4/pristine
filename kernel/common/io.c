@@ -1,6 +1,6 @@
 /*
  * Pristine
- * stage2_io: IO port communication functions
+ * io: IO port communication functions
  * SPDX-License-Identifier: MIT
  */
 

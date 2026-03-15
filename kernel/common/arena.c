@@ -1,6 +1,6 @@
 /*
  * Pristine
- * stage2_memory - memory functions
+ * arena: arena allocator
  * SPDX-License-Identifier: MIT
  */
 

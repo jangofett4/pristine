@@ -32,7 +32,11 @@ COMPILER_RT64_PATH := $(shell clang -m64 -print-resource-dir)/lib/linux/libclang
 
 # Kernel C sources (kernel/, drivers/, lib/)
 K_SRCS     = $(shell find kernel drivers -name "*.c")
+K_ASMSRCS  = $(shell find kernel drivers -name "*.asm")
+
 K_OBJS     = $(patsubst %.c, bin/%.o, $(K_SRCS)) bin/lib/lib64/printf/printf.o
+K_ASMOBJS  = $(patsubst %.asm, bin/%.o, $(K_ASMSRCS))
+
 K_BUILTINS = $(LIBGCC64_PATH)
 
 # Stage2 C sources (boot/*.c) & assembly sources
@@ -48,12 +52,19 @@ S1_INCSRCS		= $(shell find boot/stage1 -name "*.inc")
 S1_ASMSRCS		= boot/stage1/stage1.asm
 S1_ASMOBJS		= $(patsubst %.asm, bin/%.o, $(S1_ASMSRCS))
 
+# BSFS
+BSFS_MKFS_SRCS     = tools/bsfs/mkfs.bsfs.c
+BSFS_POPULATE_SRCS = tools/bsfs/bsfs-populate.c tools/bsfs/bsfs.c
+BSFS_EXTRACT_SRCS  = tools/bsfs/bsfs-extract.c tools/bsfs/bsfs.c
+
+CFLAGS_BSFS = -Iinclude/common/bsfs -O2 -std=c11 -DBSFS_DEBUG=1 -DBSFS_STDLIB_EXISTS=1 -g
+
 # Auto-generated header dependencies
 -include $(shell find bin -name "*.d")
 
 .PHONY: all clean qemu debug
 
-all: bin/hda.img
+all: bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract bin/hda.img
 
 # ---- Stage 1 ----
 bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
@@ -101,18 +112,40 @@ bin/drivers/%.o: drivers/%.c
 	@mkdir -p $(dir $@)
 	$(C) $(CFLAGS64) $< -o $@
 
-bin/kernel.elf: $(K_OBJS)
+bin/kernel/%.o: kernel/%.asm
+	@mkdir -p $(dir $@)
+	$(ASM) -f elf64 $< -o $@
+
+bin/drivers/%.o: drivers/%.asm
+	@mkdir -p $(dir $@)
+	$(ASM) -f elf64 $< -o $@
+
+bin/kernel.elf: $(K_OBJS) $(K_ASMOBJS)
 	$(LD) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@
+
+
+# ---- BSFS ----
+bin/mkfs.bsfs: $(BSFS_MKFS_SRCS)
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS_BSFS) $^ -o $@
+
+bin/bsfs-populate: $(BSFS_POPULATE_SRCS)
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS_BSFS) $^ -o $@
+
+bin/bsfs-extract: $(BSFS_EXTRACT_SRCS)
+	@mkdir -p $(dir $@)
+	$(C) $(CFLAGS_BSFS) $^ -o $@
 
 # ---- Final image ----
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf
 	@mkdir -p bin/hda
 	mv bin/kernel.elf root/
 	truncate -s 1G $@
-	./tools/bsfs/bin/mkfs.bsfs bin/hda.img --label pristine --offset 16
+	./bin/mkfs.bsfs bin/hda.img --label pristine --offset 16
 	dd if=bin/boot/stage1/stage1.bin of=$@ bs=512 seek=0 conv=notrunc
 	dd if=bin/boot/stage2/stage2.bin of=$@ bs=512 seek=1 conv=notrunc
-	./tools/bsfs/bin/bsfs-populate bin/hda.img root --offset 16
+	./bin/bsfs-populate bin/hda.img root --offset 16
 
 # ---- Targets ----
 qemu: bin/hda.img

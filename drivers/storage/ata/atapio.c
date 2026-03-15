@@ -1,11 +1,8 @@
 /*
  * Pristine
- * stage2_ata_pio - ATA PIO disk access functions
+ * atapio: ATA PIO disk access functions
  * SPDX-License-Identifier: MIT
  */
-
-#include "include/stage2_common.h"
-#include "lib32/printf/printf.h"
 
 #include <drivers/storage/ata/atapio.h>
 #include <common/io.h>
@@ -125,8 +122,12 @@ AtaPioReadStatus ata_pio_readsector(uint32_t lba, uint8_t *buf) {
 }
 
 AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint8_t *buf) {
+    AtaPioReadStatus readstatus;
+    AtaPioStatus status;
+
     if (sectors_to_read > DISK_READ_MAX_BLOCKS) {
-        PANIC("Cannot read more than %d blocks at a time!", DISK_READ_MAX_BLOCKS);
+        readstatus.data = NULL;
+        return readstatus;
     }
     
     io_outb(ATA_PIO_PORT_DRIVEHEAD, 0xE0 | ((lba >> 24) & 0x0F));
@@ -139,8 +140,6 @@ AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint
     io_outb(ATA_PIO_PORT_LBAHIGH, (lba >> 16) & 0xFF);
     io_outb(ATA_PIO_PORT_COMMAND, ATA_PIO_CMD_READ);
     ata_pio_delay();
-    AtaPioReadStatus readstatus;
-    AtaPioStatus status;
 
     uint16_t *buf16 = (uint16_t*)buf;
     for (uint8_t sector = 0; sector < sectors_to_read; sector++) {
@@ -173,7 +172,6 @@ uint8_t ata_pio_disk_ops_read(uint32_t lba, size_t sector_count, uint8_t *buf) {
 }
 
 uint8_t ata_pio_disk_ops_write(uint32_t lba, size_t sector_count, const uint8_t *buf) {
-    PANIC("Disk write for ATA PIO is unimplemented!");
     return 0;
 }
 
