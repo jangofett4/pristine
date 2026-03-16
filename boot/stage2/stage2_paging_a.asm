@@ -12,9 +12,6 @@ kernel_entry:
     xor ebx, ebx
     mov ebx, [esp+16]   ; 32 bits BootInfo pointer
 
-    ; 64 bit GDT
-    lgdt [stage2_gdt_ptr]
-
     ; PAE
     mov eax, cr4
     or eax, 0x20
@@ -40,11 +37,11 @@ kernel_entry:
 [bits 64]
 .stage2_farjump:
     mov ax, 0x10
-    mov ds, rax
-    mov es, rax
-    mov fs, rax
-    mov gs, rax
-    mov ss, rax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
     shl rsi, 32
     or rdi, rsi
     mov rax, rdi
@@ -53,22 +50,3 @@ kernel_entry:
     mov edi, ebx
 
     jmp rax
-
-%macro GDT_ENTRY 4
-    dw (%2 & 0xFFFF)
-    dw (%1 & 0xFFFF)
-    db ((%1 >> 16) & 0xFF)
-    db (%3)
-    db ((%4 << 4) | ((%2 >> 16) & 0x0F))
-    db ((%1 >> 24) & 0xFF)
-%endmacro
-
-stage2_gdt_start:
-    GDT_ENTRY 0, 0, 0, 0
-    GDT_ENTRY 0, 0xFFFFF, 0x9A, 0xA
-    GDT_ENTRY 0, 0xFFFFF, 0x92, 0xC
-stage2_gdt_end:
-
-stage2_gdt_ptr:
-    dw stage2_gdt_end - stage2_gdt_start - 1
-    dd stage2_gdt_start

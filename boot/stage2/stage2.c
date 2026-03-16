@@ -9,14 +9,14 @@
 #define KERNEL_LOAD_ADDR 0x200000
 
 #include "include/stage2_common.h"
-#include "include/stage2_paging.h"
 #include "include/stage2_video.h"
 
 #include <common/io.h>
+#include <common/gdt.h>
+#include <common/pic.h>
 #include <common/elf.h>
 #include <common/disk.h>
 #include <common/idt32.h>
-#include <common/pic.h>
 #include <common/paging.h>
 #include <common/string.h>
 #include <common/serial.h>
@@ -28,7 +28,7 @@
 #include <common/bsfs/bsfs_defaults.h>
 #include <drivers/storage/ata/atapio.h>
 
-#include "lib32/printf/printf.h"
+#include <lib32/printf/printf.h>
 
 // information to be passed to kernel
 static RawBootInfo bootinfo = {0};
@@ -41,6 +41,8 @@ static IDT32Entry idt[IDT32_SIZE];
 static uint8_t disk_buf[DISK_READ_MAX_BLOCKS * ATA_PIO_SECTOR_SIZE];
 
 static Serial serial;
+
+uint64_t volatile *__gdt = (uint64_t*)GDT_ADDRESS;
 
 #define PIC_ISR_I(i, w) {.type=IDT##w_ISR_INTERRUPT,.handler=idt##w_isr_##i}
 #define PIC_ISR_T(i, w) {.type=IDT##w_ISR_TRAP,.handler=idt##w_isr_##i}
@@ -341,36 +343,16 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     for (uint64_t i = 0; i < 512; i++) {
         __pg_pt1[i] = (0x200000 + (i * 4096)) | PAGING_PT_DEFAULT_FLAGS;
     }
-
-    // const uint64_t fb_base = vesa_vbe_mode_info.PhysBasePtr;
-    // const uint64_t fb_size = vesa_vbe_mode_info.YResolution * vesa_vbe_mode_info.BytesPerScanLine;
-    // const uint32_t fb_required_pages = (fb_size + 0x200000 - 1) / 0x200000;
-
-    // for (size_t i = 0; i < fb_required_pages; i++) {
-    //     uint64_t phys = fb_base + i * 0x200000;
-    //     paging_set_level_3_map(
-    //         PG_PML4_IDX(phys),
-    //         PG_PDPT_IDX(phys),
-    //         PG_PD_IDX(phys),
-    //         phys
-    //     );
-    // }
-
-    // kernel stack starts for KERNEL_LOAD_ADDR - 8, 16 KiB.
-    // we want to put a guard page there just in case
-    // uint64_t kernel_stack_guard = KERNEL_LOAD_ADDR - 5 * 4096;
-    // paging_set_level_4_guard(
-    //     PG_PML4_IDX(kernel_stack_guard), 
-    //     PG_PDPT_IDX(kernel_stack_guard), 
-    //     PG_PD_IDX(kernel_stack_guard), 
-    //     PG_PT_IDX(kernel_stack_guard)
-    // );
-
-
+    
     bootinfo.memory_map_addr = (uint32_t)(uintptr_t)&memmap;
     bootinfo.memory_map_count = memmap_count;
     bootinfo.vesa_vbe_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_info;
     bootinfo.vesa_vbe_mode_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_mode_info;
+
+    gdt_set_entry(__gdt, 0, 0, 0, 0, 0);                  // null segment descriptor
+    gdt_set_entry(__gdt, 1, 0, 0xFFFFF, 0b10011010, 0xA); // code segment descriptor (present, ring 0, executable)
+    gdt_set_entry(__gdt, 2, 0, 0xFFFFF, 0b10010010, 0xC); // data segment descriptor (present, ring 0, not executable, grows upward, R/W)
+    gdt_load_gdtr(__gdt, 3);
 
     kernel_entry(0x1000, kernel_elf_hdr.e_entry, &bootinfo);
 

@@ -1,9 +1,8 @@
 /*
  * Pristine
- * stage2_paging: paging related subroutines
+ * paging: paging related subroutines
  * SPDX-License-Identifier: MIT
  */
-
 
 #include <common/paging.h>
 #include <common/string.h>

@@ -15,18 +15,20 @@
 // This is a bit big
 static IDT64ISRDispatch dispatch_table[48] = {0};
 
-void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint32_t handler) {
+void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint32_t handler, uint8_t ist) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
-    idt_table[index].zero = 0;
+    idt_table[index].ist.ist = ist;
+    idt_table[index].ist.reserved = 0;
     idt_table[index].attr = IDT64_IDT_ATTR_INTERRUPT;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
 
-void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint32_t handler) {
+void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint32_t handler, uint8_t ist) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
-    idt_table[index].zero = 0;
+    idt_table[index].ist.ist = ist;
+    idt_table[index].ist.reserved = 0;
     idt_table[index].attr = IDT64_IDT_ATTR_TRAP;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
 }
@@ -34,9 +36,9 @@ void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint32_t handle
 void idt64_set_entries(IDT64Entry *entries, IDT64ISRHandler *handlers, size_t size) {
     for (size_t i = 0; i < size; i++) {
         if (handlers[i].type == IDT64_ISR_INTERRUPT)
-            idt64_set_entry_int(entries, i, (uint32_t)(uintptr_t)handlers[i].handler);
+            idt64_set_entry_int(entries, i, (uint32_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
         else
-            idt64_set_entry_trap(entries, i, (uint32_t)(uintptr_t)handlers[i].handler);
+            idt64_set_entry_trap(entries, i, (uint32_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
     }
 }
 
@@ -60,7 +62,12 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
         idt64_debug_print_frame(frame);
         if (frame->int_no < 32) {
             // CPU exception with no handler = panic, halt
-            KPANIC("Unhandled exception %d, error code 0x%x", frame->int_no, frame->err_code);
+            uint64_t cr2, cr3, fs, gs;
+            __asm__ volatile("mov %%cr2, %0" : "=r"(cr2) :);
+            __asm__ volatile("mov %%cr3, %0" : "=r"(cr3) :);
+            __asm__ volatile("mov %%fs, %0" : "=r"(fs) :);
+            __asm__ volatile("mov %%gs, %0" : "=r"(gs) :);
+            KPANIC("Unhandled exception %d, error code 0x%x {\n CR2 = 0x%016x\n CR3 = 0x%016x\n FS = 0x%016x\n GS = 0x%016x\n}", frame->int_no, frame->err_code, cr2, cr3, fs, gs);
         }
     } else {
         handler(frame);
@@ -98,5 +105,7 @@ void idt64_debug_print_frame(IDT64ISRFrame *frame) {
     printf(" %-8s = 0x%016x\n", "rip", frame->rip);
     printf(" %-8s = 0x%016x\n", "cs", frame->cs);
     printf(" %-8s = 0x%016x\n", "rflags", frame->rflags);
+    printf(" %-8s = 0x%016x\n", "ss", frame->ss);
+    printf(" %-8s = 0x%016x\n", "rsp", frame->rsp);
     printf("}\n");
 }

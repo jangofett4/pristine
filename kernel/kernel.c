@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "common/gdt.h"
+#include "common/paging.h"
 #include <stdint.h>
 
 #include <pristine.h>
@@ -27,6 +29,9 @@
 #include <lib64/printf/printf.h>
 #include <stdio.h>
 
+uint64_t volatile *__global_gdt = (uint64_t*)GDT_ADDRESS;
+TSSEntry volatile *__global_tss = (TSSEntry*)TSS_ADDRESS;
+
 static IDT64Entry __global_idt[IDT64_SIZE];
 
 static Serial __global_serial;
@@ -47,31 +52,48 @@ void kmain(uint32_t bootinfo_addr) {
     BootInfo bootinfo = bootinfo_copy(rawbootinfo);
     rawbootinfo = 0;
 
+    // following statements only work because we are at 2 MiB mark
+    // honestly one of the ugliest assumptions I did in this project
+    // this won't work if kernel is anywhere else beside the 2 MiB
+    __pg_pt0[KERNEL_STACK_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    __pg_pt0[KERNEL_TSS_RSP0_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    __pg_pt0[KERNEL_TSS_IST1_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    pg_invlpg((void*)KERNEL_STACK_GUARD);
+    pg_invlpg((void*)KERNEL_TSS_RSP0_GUARD);
+    pg_invlpg((void*)KERNEL_TSS_IST1_GUARD);
+
+    __global_tss[0].rsp0 = KERNEL_TSS_RSP0_START;
+    __global_tss[0].ist1 = KERNEL_TSS_IST1_START;
+
+    gdt_set_tss_entry(__global_gdt, 3, __global_tss, 0x89, 0, sizeof(TSSEntry) - 1);
+    gdt_load_gdtr(__global_gdt,  5);
+    gdt_load_tss(0x18);
+
     idt64_disable_interrupts();
 
     IDT64ISRHandler isr_table[] = {
-        IDT64_ISR_T(0),  IDT64_ISR_T(1),  IDT64_ISR_I(2),  IDT64_ISR_T(3),  IDT64_ISR_T(4),  IDT64_ISR_T(5),
-        IDT64_ISR_T(6),  IDT64_ISR_T(7),  IDT64_ISR_T(8),  IDT64_ISR_T(9),  IDT64_ISR_T(10), IDT64_ISR_T(11),
-        IDT64_ISR_T(12), IDT64_ISR_T(13), IDT64_ISR_T(14), IDT64_ISR_I(15), IDT64_ISR_T(16), IDT64_ISR_T(17),
-        IDT64_ISR_T(18), IDT64_ISR_T(19), IDT64_ISR_T(20), IDT64_ISR_T(21), IDT64_ISR_I(22), IDT64_ISR_I(23),
-        IDT64_ISR_I(24), IDT64_ISR_I(25), IDT64_ISR_I(26), IDT64_ISR_I(27), IDT64_ISR_I(28), IDT64_ISR_I(29),
-        IDT64_ISR_I(30), IDT64_ISR_I(31), 
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_32 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_33 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_34 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_35 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_36 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_37 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_38 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_39 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_40 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_41 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_42 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_43 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_44 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_45 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_46 },
-        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_47 },
+        IDT64_ISR_T(0, 0),  IDT64_ISR_T(1, 0),  IDT64_ISR_I(2, 0),  IDT64_ISR_T(3, 0),  IDT64_ISR_T(4, 0),  IDT64_ISR_T(5, 0),
+        IDT64_ISR_T(6, 0),  IDT64_ISR_T(7, 0),  IDT64_ISR_T(8, 0),  IDT64_ISR_T(9, 0),  IDT64_ISR_T(10, 0), IDT64_ISR_T(11, 0),
+        IDT64_ISR_T(12, 0), IDT64_ISR_T(13, 0), IDT64_ISR_T(14, 1), IDT64_ISR_I(15, 0), IDT64_ISR_T(16, 0), IDT64_ISR_T(17, 0),
+        IDT64_ISR_T(18, 0), IDT64_ISR_T(19, 0), IDT64_ISR_T(20, 0), IDT64_ISR_T(21, 0), IDT64_ISR_I(22, 0), IDT64_ISR_I(23, 0),
+        IDT64_ISR_I(24, 0), IDT64_ISR_I(25, 0), IDT64_ISR_I(26, 0), IDT64_ISR_I(27, 0), IDT64_ISR_I(28, 0), IDT64_ISR_I(29, 0),
+        IDT64_ISR_I(30, 0), IDT64_ISR_I(31, 0), 
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_32, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_33, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_34, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_35, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_36, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_37, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_38, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_39, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_40, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_41, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_42, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_43, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_44, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_45, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_46, .ist = 0 },
+        {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_47, .ist = 0 },
     };
 
     idt64_set_entries(__global_idt, isr_table, IDT64_SIZE);
@@ -155,6 +177,8 @@ void kmain(uint32_t bootinfo_addr) {
         printf("Position: %lu\n", logofile.position);
     }
     arena_reset();
+
+    overflow(0);
 
     while(1);
 }

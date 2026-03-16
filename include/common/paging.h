@@ -9,6 +9,12 @@
 #include <common/bootinfo.h>
 #include <stdint.h>
 
+#define PG_PML4_ADDRESS 0x1000
+#define PG_PDPT_ADDRESS 0x2000
+#define PG_PD_ADDRESS   0x3000
+#define PG_PT0_ADDRESS  0x4000
+#define PG_PT1_ADDRESS  0x5000
+
 #define PG_PML4_IDX(addr) (((addr) >> 39) & 0x1FF)
 #define PG_PDPT_IDX(addr) (((addr) >> 30) & 0x1FF)
 #define PG_PD_IDX(addr)   (((addr) >> 21) & 0x1FF)
@@ -28,3 +34,7 @@ extern uint64_t *volatile __pg_pdpt;
 extern uint64_t *volatile __pg_pd;
 extern uint64_t *volatile __pg_pt0;
 extern uint64_t *volatile __pg_pt1;
+
+static inline void pg_invlpg(void* address) {
+    __asm__ volatile("invlpg (%0)" : : "r"(address));
+}

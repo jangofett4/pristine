@@ -2,7 +2,7 @@
 ; stage1_memmap: memory map subroutines
 ; SPDX-License-Identifier: MIT
 
-STAGE1_MEMMAP_ADDR  equ 0x4000
+STAGE1_MEMMAP_ADDR  equ 0x6000 + 2
 STAGE1_MEMMAP_SIZE  equ 20
 STAGE1_MEMMAP_COUNT equ (STAGE1_MEMMAP_ADDR - 2)
 

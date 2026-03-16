@@ -2,8 +2,8 @@
 ; stage1_vesa: VESA VBE subroutines
 ; SPDX-License-Identifier: MIT
 
-VESA_VBE_INFO_BUF equ 0x1000
-VESA_VBE_MODE_BUF equ 0x1200
+VESA_VBE_INFO_BUF equ 0x7000
+VESA_VBE_MODE_BUF equ 0x7100
 
 struc VbeInfoBlock
     .VbeSignature:      resb 4   ; 'VESA'
