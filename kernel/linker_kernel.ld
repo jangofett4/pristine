@@ -1,9 +1,30 @@
-ENTRY(kmain)
+ENTRY(_start)
+
+phys_base = 0x200000;
+virt_base = 0xFFFFFFFF80000000;
+offset = virt_base - phys_base;
+
 SECTIONS
 {
-    . = 0x200000;
-    .text : { *(.text*) }
-    .rodata : { *(.rodata*) }
-    .data : { *(.data*) }
-    .bss : { *(.bss*) }
+    . = virt_base + phys_base;
+
+    .text : AT(ADDR(.text) - offset)
+    { 
+        *(.text*) 
+    }
+
+    .data : AT(ADDR(.data) - offset)
+    { 
+        *(.data*) 
+    }
+
+    .rodata : AT(ADDR(.rodata) - offset)
+    { 
+        *(.rodata*) 
+    }
+
+    .bss : AT(ADDR(.bss) - offset)
+    { 
+        *(.bss*) 
+    }
 }

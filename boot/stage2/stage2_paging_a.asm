@@ -46,7 +46,6 @@ kernel_entry:
     or rdi, rsi
     mov rax, rdi
 
-    mov rsp, (0x200000 - 8)
-    mov edi, ebx
+    mov rdi, rbx
 
     jmp rax

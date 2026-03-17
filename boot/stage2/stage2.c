@@ -4,13 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <common/bootinfo.h>
 #include <stdint.h>
-#define KERNEL_LOAD_ADDR 0x200000
 
 #include "include/stage2_common.h"
-#include "include/stage2_video.h"
 
+#include <common/bootinfo.h>
 #include <common/io.h>
 #include <common/gdt.h>
 #include <common/pic.h>
@@ -30,9 +28,10 @@
 
 #include <lib32/printf/printf.h>
 
+#define KERNEL_PHYS_ADDR 0x200000
+
 // information to be passed to kernel
 static RawBootInfo bootinfo = {0};
-static MemmapEntry memmap[MEMMAP_MAX_ITEMS];
 static VesaVbeInfo vesa_vbe_info;
 static VesaVbeModeInfo vesa_vbe_mode_info;
 
@@ -58,42 +57,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     printf("Getting memory map...\n");
     uint16_t memmap_count = *(uint16_t*)MEMMAP_COUNT_ADDR;
     printf("Number of memory map entries: %u\n", memmap_count);
-    MemmapEntry *memmap_entries = (MemmapEntry*)MEMMAP_ADDR;
-    for (size_t i = 0; i < memmap_count; i++) {
-        if (i >= MEMMAP_MAX_ITEMS) {
-            PANIC("stage2: memory map exceeds maximum items of %i", MEMMAP_MAX_ITEMS);
-        }
-        MemmapEntry *entry = memmap_entries + i;
-        memmap[i] = *entry;
-        uint64_t entry_base = (uint64_t)entry->BaseAddrHigh << 32 | (uint64_t)entry->BaseAddrLow;
-        uint64_t entry_size = (uint64_t)entry->LengthHigh << 32 | (uint64_t)entry->LengthLow;
-        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", entry_base, entry_base + entry_size, entry_size / 1024);
-        switch (entry->Type) {
-            case 1:
-                printf("Usable");
-                break;
-            case 2:
-                printf("Reserved");
-                break;
-            case 3:
-                printf("ACPI");
-                break;
-            case 4:
-                printf("NVS");
-                break;
-            case 5:
-                printf("Unusable");
-                break;
-            case 6:
-                printf("Disabled");
-                break;
-            default:
-                printf("Unknown");
-                break;
-        }
-        printf("\n");
-    }
-
+    
     printf("Setting up interrupts...\n");
 
     IDT32ISRHandler isr_table[] = {
@@ -284,6 +248,10 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     printf(" e_phentsize: %u\n", kernel_elf_hdr.e_phentsize);
     printf(" Elf64Phdr:   %u\n", sizeof(Elf64Phdr));
 
+    if (kernel_elf_hdr.e_phentsize != sizeof(Elf64Phdr)) {
+        PANIC("stage2: e_phentsize != sizeof(Elf64Phdr)");
+    }
+
     for (size_t ph = 0; ph < kernel_elf_hdr.e_phnum; ph++) {
         Elf64Phdr phdr;
         uint64_t ph_offset = kernel_elf_hdr.e_phoff + (ph * kernel_elf_hdr.e_phentsize);
@@ -325,36 +293,51 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
         }
     }
 
-    printf("Entry: 0x%lx\n", kernel_elf_hdr.e_entry);
+    printf("Kernel Entry: 0x%016x\n", kernel_elf_hdr.e_entry);
 
     bsfs_fclose(&kernel_file);
     arena_reset();
-
-    printf("Setting up 4 MiB identity mapped paging...\n");
-    __pg_pml4[0] = (uint64_t)__pg_pdpt | PAGING_PML4_DEFAULT_FLAGS;
-    __pg_pdpt[0] = (uint64_t)__pg_pd   | PAGING_PDPT_DEFAULT_FLAGS;
-    __pg_pd[0]   = (uint64_t)__pg_pt0  | PAGING_PD_DEFAULT_FLAGS;
-    __pg_pd[1]   = (uint64_t)__pg_pt1  | PAGING_PD_DEFAULT_FLAGS;
-
-    for (uint64_t i = 0; i < 512; i++) {
-        __pg_pt0[i] = (i * 4096) | PAGING_PT_DEFAULT_FLAGS;
-    }
-
-    for (uint64_t i = 0; i < 512; i++) {
-        __pg_pt1[i] = (0x200000 + (i * 4096)) | PAGING_PT_DEFAULT_FLAGS;
-    }
     
-    bootinfo.memory_map_addr = (uint32_t)(uintptr_t)&memmap;
+    bootinfo.memory_map_addr = (uint32_t)(uintptr_t)MEMMAP_ADDR;
     bootinfo.memory_map_count = memmap_count;
     bootinfo.vesa_vbe_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_info;
     bootinfo.vesa_vbe_mode_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_mode_info;
+
+    printf("Setting up higher half direct mapping...\n");
+    memset((void*)__pg_pml4, 0, PAGE_DEFAULT_SIZE);
+    memset((void*)__pg_pdpt_kernel, 0, PAGE_DEFAULT_SIZE);
+    memset((void*)__pg_pdpt_higher_half, 0, PAGE_DEFAULT_SIZE);
+    memset((void*)__pg_pd_kernel, 0, PAGE_DEFAULT_SIZE);
+
+    __pg_pml4[0]   = (uint64_t)__pg_pdpt_ident       | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pml4[256] = (uint64_t)__pg_pdpt_higher_half | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pml4[511] = (uint64_t)__pg_pdpt_kernel      | PAGING_PML4_DEFAULT_FLAGS;
+
+    __pg_pdpt_kernel[510] = (uint64_t)__pg_pd_kernel | PAGING_PDPT_DEFAULT_FLAGS;
+    __pg_pdpt_ident[0]    = (uint64_t)__pg_pd_ident  | PAGING_PDPT_DEFAULT_FLAGS;
+
+    __pg_pd_ident[0]      = (uint64_t)__pg_pt_ident0 | PAGING_PD_DEFAULT_FLAGS;
+    __pg_pd_ident[1]      = (uint64_t)__pg_pt_ident1 | PAGING_PD_DEFAULT_FLAGS;
+    
+    for (size_t i = 0; i < 4; i++) {
+        __pg_pd_kernel[i] = ((i * PAGE_LARGE_SIZE) + KERNEL_PHYS_ADDR) | PAGING_PD_LARGE_FLAGS;
+    }
+
+    for (size_t i = 0; i < 512; i++) {
+        __pg_pdpt_higher_half[i] = (i * PAGE_HUGE_SIZE) | PAGING_PDPT_HUGE_FLAGS;
+    }
+
+    for (size_t i = 0; i < 512; i++) {
+        __pg_pt_ident0[i] = (i * PAGE_DEFAULT_SIZE)            | PAGING_PT_DEFAULT_FLAGS;
+        __pg_pt_ident1[i] = (i * PAGE_DEFAULT_SIZE) + 0x200000 | PAGING_PT_DEFAULT_FLAGS;
+    }
 
     gdt_set_entry(__gdt, 0, 0, 0, 0, 0);                  // null segment descriptor
     gdt_set_entry(__gdt, 1, 0, 0xFFFFF, 0b10011010, 0xA); // code segment descriptor (present, ring 0, executable)
     gdt_set_entry(__gdt, 2, 0, 0xFFFFF, 0b10010010, 0xC); // data segment descriptor (present, ring 0, not executable, grows upward, R/W)
     gdt_load_gdtr(__gdt, 3);
 
-    kernel_entry(0x1000, kernel_elf_hdr.e_entry, &bootinfo);
+    kernel_entry(PG_PML4_ADDRESS, kernel_elf_hdr.e_entry, &bootinfo);
 
     while (1);
 }

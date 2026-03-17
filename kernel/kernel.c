@@ -4,19 +4,21 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "common/gdt.h"
-#include "common/paging.h"
 #include <stdint.h>
 
 #include <pristine.h>
 #include <kernel/kernel.h>
+#include <kernel/global.h>
+#include <kernel/memory.h>
 #include <kernel/panic.h>
 #include <common/pic.h>
+#include <common/gdt.h>
 #include <common/disk.h>
 #include <common/idt64.h>
 #include <common/arena.h>
 #include <common/serial.h>
 #include <common/string.h>
+#include <common/paging.h>
 #include <common/bootinfo.h>
 
 #include <common/bsfs/bsfs.h>
@@ -29,38 +31,23 @@
 #include <lib64/printf/printf.h>
 #include <stdio.h>
 
-uint64_t volatile *__global_gdt = (uint64_t*)GDT_ADDRESS;
-TSSEntry volatile *__global_tss = (TSSEntry*)TSS_ADDRESS;
-
-static IDT64Entry __global_idt[IDT64_SIZE];
-
-static Serial __global_serial;
-static Video __global_video;
-static DiskOpsVtable __global_diskops;
-static BsfsContext __global_bsfscontext;
-
-static uint8_t __global_tmp_diskbuf[ATA_PIO_SECTOR_SIZE];
-static uint8_t __global_disk_scratchbuf[ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS];
-
-void overflow(volatile uint8_t t[1024]) {
-    volatile uint8_t tmp[1024];
-    overflow(tmp);
-}
-
-void kmain(uint32_t bootinfo_addr) {
-    RawBootInfo *rawbootinfo = (RawBootInfo*)(uintptr_t)bootinfo_addr;
+void kmain(uint64_t bootinfo_addr) {
+    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + MEMORY_HDDM_START);
     BootInfo bootinfo = bootinfo_copy(rawbootinfo);
     rawbootinfo = 0;
+
+    __pg_pml4[0] = 0;
+    page_invlpg((void*)__pg_pml4);
 
     // following statements only work because we are at 2 MiB mark
     // honestly one of the ugliest assumptions I did in this project
     // this won't work if kernel is anywhere else beside the 2 MiB
-    __pg_pt0[KERNEL_STACK_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
-    __pg_pt0[KERNEL_TSS_RSP0_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
-    __pg_pt0[KERNEL_TSS_IST1_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
-    pg_invlpg((void*)KERNEL_STACK_GUARD);
-    pg_invlpg((void*)KERNEL_TSS_RSP0_GUARD);
-    pg_invlpg((void*)KERNEL_TSS_IST1_GUARD);
+    // __pg_pt_ident0[KERNEL_STACK_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    // __pg_pt_ident0[KERNEL_TSS_RSP0_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    // __pg_pt_ident0[KERNEL_TSS_IST1_GUARD / 4096] = PAGING_PT_GUARD_FLAGS;
+    // page_invlpg((void*)KERNEL_STACK_GUARD);
+    // page_invlpg((void*)KERNEL_TSS_RSP0_GUARD);
+    // page_invlpg((void*)KERNEL_TSS_IST1_GUARD);
 
     __global_tss[0].rsp0 = KERNEL_TSS_RSP0_START;
     __global_tss[0].ist1 = KERNEL_TSS_IST1_START;
@@ -72,10 +59,10 @@ void kmain(uint32_t bootinfo_addr) {
     idt64_disable_interrupts();
 
     IDT64ISRHandler isr_table[] = {
-        IDT64_ISR_T(0, 0),  IDT64_ISR_T(1, 0),  IDT64_ISR_I(2, 0),  IDT64_ISR_T(3, 0),  IDT64_ISR_T(4, 0),  IDT64_ISR_T(5, 0),
-        IDT64_ISR_T(6, 0),  IDT64_ISR_T(7, 0),  IDT64_ISR_T(8, 0),  IDT64_ISR_T(9, 0),  IDT64_ISR_T(10, 0), IDT64_ISR_T(11, 0),
-        IDT64_ISR_T(12, 0), IDT64_ISR_T(13, 0), IDT64_ISR_T(14, 1), IDT64_ISR_I(15, 0), IDT64_ISR_T(16, 0), IDT64_ISR_T(17, 0),
-        IDT64_ISR_T(18, 0), IDT64_ISR_T(19, 0), IDT64_ISR_T(20, 0), IDT64_ISR_T(21, 0), IDT64_ISR_I(22, 0), IDT64_ISR_I(23, 0),
+        IDT64_ISR_T(0, 1),  IDT64_ISR_T(1, 1),  IDT64_ISR_I(2, 0),  IDT64_ISR_T(3, 1),  IDT64_ISR_T(4, 1),  IDT64_ISR_T(5, 1),
+        IDT64_ISR_T(6, 1),  IDT64_ISR_T(7, 1),  IDT64_ISR_T(8, 1),  IDT64_ISR_T(9, 1),  IDT64_ISR_T(10, 1), IDT64_ISR_T(11, 1),
+        IDT64_ISR_T(12, 1), IDT64_ISR_T(13, 1), IDT64_ISR_T(14, 1), IDT64_ISR_I(15, 0), IDT64_ISR_T(16, 1), IDT64_ISR_T(17, 1),
+        IDT64_ISR_T(18, 1), IDT64_ISR_T(19, 1), IDT64_ISR_T(20, 1), IDT64_ISR_T(21, 1), IDT64_ISR_I(22, 0), IDT64_ISR_I(23, 0),
         IDT64_ISR_I(24, 0), IDT64_ISR_I(25, 0), IDT64_ISR_I(26, 0), IDT64_ISR_I(27, 0), IDT64_ISR_I(28, 0), IDT64_ISR_I(29, 0),
         IDT64_ISR_I(30, 0), IDT64_ISR_I(31, 0), 
         {.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_32, .ist = 0 },
@@ -129,13 +116,55 @@ void kmain(uint32_t bootinfo_addr) {
     printf("KERNEL_TSS_IST1_END   : %08x\n", KERNEL_TSS_IST1_END);
     printf("KERNEL_TSS_IST1_GUARD : %08x\n", KERNEL_TSS_IST1_GUARD);
 
-    // uint8_t *ptr = (uint8_t*)__global_video.address;
-    // for (size_t y = 50; y < 150; y++) {
-    //     for (size_t x = 50; x < 150; x++) {
-    //         uint32_t *pixel = (uint32_t*)(ptr + y * __global_video.bytes_per_scanline + x * 4);
-    //         *pixel = 0x00FF0000;
-    //     }
-    // }
+    // Mark the regions we got from memory map
+    if (bootinfo.memory_map_count > MEMMAP_MAX_ITEMS) {
+        KPANIC("kernel: memory map exceeds maximum items of %i, possibly malformed memory", MEMMAP_MAX_ITEMS);
+    }
+
+    for (size_t i = 0; i < bootinfo.memory_map_count; i++) {
+        MemmapEntry *entry = bootinfo.memory_map + i;
+        uint64_t entry_base = (uint64_t)entry->BaseAddrHigh << 32 | (uint64_t)entry->BaseAddrLow;
+        uint64_t entry_size = (uint64_t)entry->LengthHigh << 32 | (uint64_t)entry->LengthLow;
+        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", entry_base, entry_base + entry_size, entry_size / 1024);
+        if (entry->Type == 1) {
+            for (uint64_t m = entry_base; m < entry_base + entry_size; m += 4096) {
+                kmem_bitmap_clear(__global_memory_bitmap, m / 4096);
+            }
+        } else {
+            for (uint64_t m = entry_base; m < entry_base + entry_size; m += 4096) {
+                kmem_bitmap_set(__global_memory_bitmap, m / 4096);
+            }
+        }
+        switch (entry->Type) {
+            case 1:
+                printf("Usable");
+                break;
+            case 2:
+                printf("Reserved");
+                break;
+            case 3:
+                printf("ACPI");
+                break;
+            case 4:
+                printf("NVS");
+                break;
+            case 5:
+                printf("Unusable");
+                break;
+            case 6:
+                printf("Disabled");
+                break;
+            default:
+                printf("Unknown");
+                break;
+        }
+        printf("\n");
+    }
+    
+    // mark the regions we are currently using (4 MiB)
+    for (size_t i = 0; i < 0x400000; i += 0x1000) {
+        kmem_bitmap_set(__global_memory_bitmap, i / 0x1000);
+    }
 
     __global_diskops = ata_pio_get_disk_ops();
 
@@ -160,25 +189,24 @@ void kmain(uint32_t bootinfo_addr) {
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
-    arena_reset();
-    BsfsFile logofile = {
-        .buf = arena_alloc(bsfs_header.block_size, 1),
-        .bufsize = bsfs_header.block_size,
-    };
-    if (logofile.inode->size >= (2 * sizeof(uint32_t) + 3 * sizeof(uint8_t))) { // literally the minimum size it can go, 1x1 image
-        if (bsfs_fopen(&__global_bsfscontext, "/boot/logo.bin", &logofile) < 0) {
-            KPANIC();
-        }
-        uint32_t w = 0, h = 0;
-        bsfs_fread(&__global_bsfscontext, &w, sizeof(uint32_t), 1, &logofile);
-        bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
-
-        printf("Logo: Width: %u, Height: %u\n");
-        printf("Position: %lu\n", logofile.position);
-    }
-    arena_reset();
-
-    overflow(0);
+    pmm_set_bitmap(__global_memory_bitmap);
+    
+    // void* file_buf = pmm_alloc() + MEMORY_HDDM_START;
+    // BsfsInode logoinode;
+    // BsfsFile logofile = {
+    //     .buf = file_buf,
+    //     .bufsize = bsfs_header.block_size,
+    //     .inode = &logoinode
+    // };
+    // if (bsfs_fopen(&__global_bsfscontext, "/boot/logo.bin", &logofile) < 0) {
+    //     KPANIC();
+    // }
+    // if (logofile.inode->size >= (2 * sizeof(uint32_t) + 3 * sizeof(uint8_t))) { // literally the minimum size it can go, 1x1 image
+    //     uint32_t w = 0, h = 0;
+    //     bsfs_fread(&__global_bsfscontext, &w, sizeof(uint32_t), 1, &logofile);
+    //     bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
+    // }
+    // pmm_free(file_buf - MEMORY_HDDM_START);
 
     while(1);
 }

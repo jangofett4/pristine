@@ -13,7 +13,7 @@ CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
            -fno-stack-protector \
            -Iboot/stage2 -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
-		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
+		   -fno-builtin-memcpy -fno-builtin-memset $(COPT) -mcmodel=kernel
 
 LD       = ld.lld
 
@@ -114,11 +114,11 @@ bin/drivers/%.o: drivers/%.c
 
 bin/kernel/%.o: kernel/%.asm
 	@mkdir -p $(dir $@)
-	$(ASM) -f elf64 $< -o $@
+	$(ASM) -f elf64 -g $< -o $@
 
 bin/drivers/%.o: drivers/%.asm
 	@mkdir -p $(dir $@)
-	$(ASM) -f elf64 $< -o $@
+	$(ASM) -f elf64 -g $< -o $@
 
 bin/kernel.elf: $(K_OBJS) $(K_ASMOBJS)
 	$(LD) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@

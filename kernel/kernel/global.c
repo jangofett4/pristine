@@ -4,7 +4,8 @@
  * SPDX-License-Identifier MIT
  */
 
-#include <common/serial.h>
+#include <kernel/kernel.h>
+#include <kernel/global.h>
 
 void _putchar(char ch) {
     Serial *serial = serial_get_default();
