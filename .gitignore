@@ -9,3 +9,4 @@ tools/bsfs/hda.img
 tools/bsfs/.ignore
 .cache
 compile_commands.json
+root/kernel.elf
