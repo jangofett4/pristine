@@ -183,13 +183,6 @@ void kmain(uint64_t bootinfo_addr) {
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
-    // uint8_t *test = (uint8_t*)0xFFFF800000400000ULL;
-    // for (size_t i = 0; i < 0x10000; i++)
-    //     test[i] = (uint8_t)(i & 0xFF);
-    // for (size_t i = 0; i < 0x10000; i++)
-    //     if (test[i] != (uint8_t)(i & 0xFF))
-    //         KPANIC("HHDM mapping broken at offset %x", i);
-
     pmm_set_bitmap(__global_memory_bitmap);
 
     void* file_buf = (void*)((uint64_t)pmm_alloc() + MEMORY_HHDM_START);
@@ -208,6 +201,21 @@ void kmain(uint64_t bootinfo_addr) {
         bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
         printf("Width: %u\n", w);
         printf("Width: %u\n", h);
+        uint32_t *fb = (uint32_t*)(__global_video.address + MEMORY_HHDM_START);
+        for (size_t y = 0; y < h; y++) {
+            for (size_t x = 0; x < w; x++) {
+                uint8_t r, g, b;
+                bsfs_fread(&__global_bsfscontext, &r, 1, 1, &logofile);
+                bsfs_fread(&__global_bsfscontext, &g, 1, 1, &logofile);
+                bsfs_fread(&__global_bsfscontext, &b, 1, 1, &logofile);
+                uint32_t *pixel_pos = (uint32_t*)((uint8_t*)fb + (y * __global_video.bytes_per_scanline) + (x * 4));
+                *pixel_pos = 
+                    0xFF000000U       |
+                    (uint32_t)r << 16 |
+                    (uint32_t)g << 8  |
+                    (uint32_t)b       ;
+            }
+        }
     }
     pmm_free(file_buf - MEMORY_HHDM_START);
 

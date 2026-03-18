@@ -108,6 +108,7 @@ int bsfs_fopen(const BsfsContext *context, const char* path, BsfsFile *file_out)
 
     file_out->position = 0;
     file_out->eof = 0;
+    file_out->cached_block = -1;
 
     return 0;
 }
@@ -136,6 +137,10 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
     const uint32_t end_block = DIV_CEIL(end_offset, context->header->block_size);
     for (size_t i = start_block; i < end_block; i++)
     {
+        if ((int64_t)i == file->cached_block) {
+            bufptr += context->header->block_size;
+            continue;
+        }
         if (i < sizeof(file->inode->blocks_direct) / sizeof(file->inode->blocks_direct[0]))
         {
             const uint32_t lba = file->inode->blocks_direct[i] * context->header->block_size / context->phys_sector_size;
@@ -145,6 +150,7 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
                 // in this case, a real disk failure
                 return BSFS_FREAD_DISK_READ_ERROR;
             }
+            file->cached_block = i;
             bufptr += context->header->block_size;
         }
         else

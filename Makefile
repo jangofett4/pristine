@@ -2,7 +2,7 @@ ASM      = nasm
 ASMFLAGS = -f elf32 -g
 
 C        = clang
-COPT	 = -Werror=return-type -Wall -O0 -g -std=c23
+COPT	 = -Werror=return-type -Wall -std=c23
 CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
            -fno-stack-protector \
            -Iinclude -Ilib \
@@ -59,12 +59,18 @@ BSFS_EXTRACT_SRCS  = tools/bsfs/bsfs-extract.c tools/bsfs/bsfs.c
 
 CFLAGS_BSFS = -Iinclude/common/bsfs -O2 -std=c11 -DBSFS_DEBUG=1 -DBSFS_STDLIB_EXISTS=1 -g
 
+ifdef DEBUG
+	COPT += -DPRISTINE_DEBUG -O0 -g 
+else
+	COPT += -O2
+endif
+
 # Auto-generated header dependencies
 -include $(shell find bin -name "*.d")
 
 .PHONY: all clean qemu debug
 
-all: bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract bin/hda.img
+all: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract
 
 # ---- Stage 1 ----
 bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
@@ -138,7 +144,7 @@ bin/bsfs-extract: $(BSFS_EXTRACT_SRCS)
 	$(C) $(CFLAGS_BSFS) $^ -o $@
 
 # ---- Final image ----
-bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf
+bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract
 	@mkdir -p bin/hda
 	mv bin/kernel.elf root/
 	truncate -s 1G $@
@@ -151,6 +157,7 @@ bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.el
 qemu: bin/hda.img
 	$(QEMU) $(QEMUFLAGS) -drive file=$(word 1,$^),format=raw
 
+debug: COPT += -DPRISTINE_DEBUG -O0 -g 
 debug: bin/hda.img
 	$(QEMU) $(QEMUFLAGS) -drive file=$(word 1,$^),format=raw -s -S
 

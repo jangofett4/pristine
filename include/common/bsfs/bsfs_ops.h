@@ -35,6 +35,7 @@ typedef struct {
     uint8_t *buf;
     uint32_t bufsize;
     uint64_t position;
+    int64_t  cached_block;
     int eof;
 } BsfsFile;
 

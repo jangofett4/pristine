@@ -57,16 +57,33 @@ void pmm_set_bitmap(uint8_t *bitmap) {
 }
 
 // finds and returns a free page
-void *pmm_alloc() {
+void *pmm_alloc(void) {
     uint64_t idx = kmem_bitmap_find(__pmm_bitmap, MEMORY_BITMAP_SIZE * 8);
+
     if (idx == UINT32_MAX) {
         KPANIC("pmm_alloc: allocation failed, no memory left on device");
     }
+
+    #ifdef PRISTINE_DEBUG
+    if (kmem_bitmap_test(__pmm_bitmap, idx)) {
+        KPANIC("pmm_alloc: kmem_bitmap_find returned an already allocated page");
+    }
+    #endif
+
     kmem_bitmap_set(__pmm_bitmap, idx);
     return (void*)(idx * PAGE_DEFAULT_SIZE);
 }
 
+// frees given page
 void pmm_free(void* page) {
-    uint32_t idx = ((uintptr_t)page / 4096);
+    uint32_t idx = ((uintptr_t)page / PAGE_DEFAULT_SIZE);
+
+    #ifdef PRISTINE_DEBUG
+    if ((uintptr_t)page & (PAGE_DEFAULT_SIZE - 1))
+        KPANIC("pmm_free: unaligned address %p", page);
+    if (!kmem_bitmap_test(__pmm_bitmap, idx))
+        KPANIC("pmm_free: double free at %p", page);
+    #endif
+    
     kmem_bitmap_clear(__pmm_bitmap, idx);
 }

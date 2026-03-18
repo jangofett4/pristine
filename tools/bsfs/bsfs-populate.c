@@ -24,6 +24,29 @@
 
 #define DIV_CEIL(a, b) (((a) + (b) - 1) / (b))
 
+uint32_t crc32(const uint8_t *data, size_t length) {
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++)
+            crc = (crc >> 1) ^ (0xEBD88320 & -(crc & 1));
+    }
+    return ~crc;
+}
+
+uint32_t crc32_update(uint32_t crc, const uint8_t *data, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++)
+            crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+    }
+    return crc;  // don't finalize yet
+}
+
+static inline uint32_t crc32_finalize(uint32_t crc) {
+    return ~crc;
+}
+
 void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, BsfsInode *current_guest_inode, uint32_t current_guest_inode_idx, uint32_t parent_guest_inode_idx, uint8_t *block_bitmap, uint8_t *megablock_bitmap, uint8_t *inode_bitmap, BsfsInode *inode_table);
 
 int main(int argc, char **argv) {
@@ -380,6 +403,8 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
             uint32_t *l2indirect_table_tmp = NULL; uint32_t l2indirect_table_idx;
             uint32_t *l3indirect_table_tmp = NULL; uint32_t l3indirect_table_idx;
 
+            uint32_t crc = 0xFFFFFFFF;
+
             while ((read = fread(bytes, 1, header->block_size, host_file))) {
                 // TODO: this could be sped up massively with bsfs_alloc_block_contiguous
                 guest_file_block_idx = bsfs_alloc_block(header, block_bitmap, megablock_bitmap);
@@ -389,6 +414,7 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
                     guest_file_inode->blocks_direct[guest_file_current_block] = guest_file_block_idx;
                     fseeko(image_file, header->block_size * guest_file_block_idx, SEEK_SET);
                     fwrite(bytes, 1, read, image_file);
+                    crc = crc32_update(crc, bytes, read);
                 } else if (guest_file_current_block < l2indirect_start) {
                     uint32_t l1slot = guest_file_current_block - l1indirect_start;
                     if (l1slot == 0) {
@@ -399,6 +425,7 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
                     l1indirect_table_tmp[l1slot] = guest_file_block_idx;
                     fseeko(image_file, header->block_size * guest_file_block_idx, SEEK_SET);
                     fwrite(bytes, 1, read, image_file);
+                    crc = crc32_update(crc, bytes, read);
                 } else if (guest_file_current_block < l3indirect_start) {
                     fclose(image_file);
                     fclose(host_file);
@@ -425,6 +452,8 @@ void bsfs_populate_dir(const char *path, FILE *image_file, BsfsHeader *header, B
                 free(l1indirect_table_tmp);
                 l1indirect_table_tmp = NULL;
             }
+
+            guest_file_inode->checksum = crc32_finalize(crc);
 
             fseeko(image_file, guest_file_dirent_offset, SEEK_SET);
             fwrite(&guest_file_dirent, sizeof(BsfsDirent), 1, image_file);

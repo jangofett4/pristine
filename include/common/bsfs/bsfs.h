@@ -12,7 +12,7 @@
 #endif
 
 #define BSFS_MAGIC      0x42534653
-#define BSFS_VERSION    0x01020100
+#define BSFS_VERSION    0x01030100
 
 #define BSFS_MAX_BLOCKS       1073741824
 #define BSFS_MAX_MEGABLOCKS   1048576
@@ -83,7 +83,8 @@ typedef struct {
     uint32_t blocks_l1indirect;                    // 4MiB
     uint32_t blocks_l2indirect;                    // 4GiB
     uint32_t blocks_l3indirect;                    // 4TiB
-    uint8_t  reserved[35 - BSFS_MAX_DIRECTBLOCKS];
+    uint32_t checksum;                             // CRC32 checksum
+    uint8_t  reserved[31 - BSFS_MAX_DIRECTBLOCKS];
 } __attribute__((packed)) BsfsInode;
 
 typedef struct {

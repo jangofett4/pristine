@@ -21,6 +21,7 @@
 #include <common/memmap.h>
 #include <common/arena.h>
 #include <common/vesa.h>
+#include <common/crc32.h>
 #include <common/bsfs/bsfs.h>
 #include <common/bsfs/bsfs_ops.h>
 #include <common/bsfs/bsfs_defaults.h>
@@ -214,6 +215,26 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     if (bsfs_fopen(&bsfs_context, "/kernel.elf", &kernel_file) < 0) {
         PANIC("stage2: kernel.elf not found!");
     }
+
+    printf("Inode checksum: %x\n", kernel_file.inode->checksum);
+    uint32_t checksum = 0xFFFFFFFF;
+    while (!kernel_file.eof) {
+        uint8_t tmp[4096];
+        int read = 0;
+        if ((read = bsfs_fread(&bsfs_context, tmp, 1, 4096, &kernel_file)) < 0) {
+            PANIC("stage2: unable to checksum kernel.elf, malformed file or filesystem (read = %i)", read);
+        }
+        checksum = crc32_update(checksum, tmp, read);
+    }
+
+    checksum = crc32_finalize(checksum);
+
+    printf("kernel.elf checksum: %x\n", checksum);
+    if (checksum != kernel_file.inode->checksum) {
+        PANIC("stage2: kernel.elf checksum doesn't match");
+    }
+
+    bsfs_fseeko(&bsfs_context, &kernel_file, 0, BSFS_FSEEKO_SET);
 
     Elf64Ehdr kernel_elf_hdr;
     if ((fread_count = bsfs_fread(&bsfs_context, &kernel_elf_hdr, sizeof(Elf64Ehdr), 1, &kernel_file)) < sizeof(Elf64Ehdr)) {
