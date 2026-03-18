@@ -28,7 +28,7 @@
 
 #include <lib32/printf/printf.h>
 
-#define KERNEL_PHYS_ADDR 0x200000
+#define KERNEL_PHYS_ADDR 0x400000
 
 // information to be passed to kernel
 static RawBootInfo bootinfo = {0};

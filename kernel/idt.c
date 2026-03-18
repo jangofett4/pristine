@@ -15,30 +15,32 @@
 // This is a bit big
 static IDT64ISRDispatch dispatch_table[48] = {0};
 
-void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint32_t handler, uint8_t ist) {
+void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].ist.ist = ist;
     idt_table[index].ist.reserved = 0;
     idt_table[index].attr = IDT64_IDT_ATTR_INTERRUPT;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
+    idt_table[index].offset3 = (handler >> 32) & 0xFFFFFFFF;
 }
 
-void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint32_t handler, uint8_t ist) {
+void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist) {
     idt_table[index].offset1 = handler & 0xFFFF;
     idt_table[index].segment = 0x08;
     idt_table[index].ist.ist = ist;
     idt_table[index].ist.reserved = 0;
     idt_table[index].attr = IDT64_IDT_ATTR_TRAP;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
+    idt_table[index].offset3 = (handler >> 32) & 0xFFFFFFFF;
 }
 
 void idt64_set_entries(IDT64Entry *entries, IDT64ISRHandler *handlers, size_t size) {
     for (size_t i = 0; i < size; i++) {
         if (handlers[i].type == IDT64_ISR_INTERRUPT)
-            idt64_set_entry_int(entries, i, (uint32_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
+            idt64_set_entry_int(entries, i, (uint64_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
         else
-            idt64_set_entry_trap(entries, i, (uint32_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
+            idt64_set_entry_trap(entries, i, (uint64_t)(uintptr_t)handlers[i].handler, handlers[i].ist);
     }
 }
 

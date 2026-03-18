@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "kernel/panic.h"
 #include <drivers/storage/ata/atapio.h>
 #include <common/io.h>
 #include <common/disk.h>
@@ -156,7 +157,13 @@ AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint
         }
 
         for (size_t i = 0; i < 256; i++)
+        {
+            status = ata_pio_get_status();
+            if (!status.flags.drq || status.flags.err) {
+                KPANIC("ata_pio_readsectors: lost DRQ at sector=%d i=%d status=%02x", sector, i, status.raw);
+            }
             buf16[i + (sector * 256)] = ata_pio_read_dataport();
+        }
     }
 
     readstatus.status = status;

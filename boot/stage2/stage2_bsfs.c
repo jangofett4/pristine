@@ -118,6 +118,10 @@ int bsfs_fopen(const BsfsContext *context, const char* path, BsfsFile *file_out)
 #define DIV_CEIL(a, b) (((a) + (b) - 1) / (b))
 int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t count, BsfsFile *file)
 {
+    if ((size * count) > file->bufsize) {
+        return BSFS_FREAD_BUF_TOO_SMALL;
+    }
+
     const uint32_t start_offset = file->position;
     uint32_t end_offset = start_offset + size * count;
     if (end_offset > file->inode->size)

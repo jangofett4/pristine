@@ -9,7 +9,7 @@ CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
-CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
+CFLAGS64 = -ffreestanding -nostdlib -O0 -c -m64 \
            -fno-stack-protector \
            -Iboot/stage2 -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \

@@ -9,7 +9,7 @@
 
 // values below give us 24 GiB or usable memory, should be plenty for our needs
 
-#define MEMORY_HDDM_START   (0xFFFF800000000000ULL)
+#define MEMORY_HHDM_START   (0xFFFF800000000000ULL)
 
 #define MEMORY_BITMAP_PHYS   0x100000
 #define MEMORY_BITMAP_END   (MEMORY_BITMAP_PHYS + 0x0C0000)

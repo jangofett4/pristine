@@ -24,10 +24,11 @@ This file (hopefully) will make me more mindful about what I put where. Every ad
 | 0x1C4000       | 0x1C5000       | 4 KiB          | PD Kernel                          |
 | 0x1C5000       | 0x1C6000       | 4 KiB          | PD Stage 2 Direct Mapping          |
 | 0x1C6000       | 0x1F7000       | 196 KiB        | Free                               |
-| 0x1F7000       | 0x1F8000       | 4 KiB          | IST1 Guard Page                    |
-| 0x1F8000       | 0x1F8FF8       | 4088 bytes     | IST1                               |
-| 0x1F9000       | 0x1FA000       | 4 KiB          | RSP0 Guard Page                    |
-| 0x1FA000       | 0x1FAFF8       | 4088 bytes     | RSP0                               |
-| 0x1FB000       | 0x1FC000       | 4 KiB          | Kernel Stack Guard Page            |
-| 0x1FC000       | 0x1FFFF8       | 16376 bytes    | Kernel Stack                       |
-| 0x200000       | 0x400000       | 2 MiB          | Kernel                             |
+| 0x1F7000       | 0x3F7000       | 2048 KiB       | Free                               | 
+| 0x3F7000       | 0x1F8000       | 4 KiB          | IST1 Guard Page                    |
+| 0x3F8000       | 0x1F8FF8       | 4088 bytes     | IST1                               |
+| 0x3F9000       | 0x1FA000       | 4 KiB          | RSP0 Guard Page                    |
+| 0x3FA000       | 0x1FAFF8       | 4088 bytes     | RSP0                               |
+| 0x3FB000       | 0x1FC000       | 4 KiB          | Kernel Stack Guard Page            |
+| 0x3FC000       | 0x1FFFF8       | 16376 bytes    | Kernel Stack                       |
+| 0x400000       | 0x600000       | 2 MiB          | Kernel                             |

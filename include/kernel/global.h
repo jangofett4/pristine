@@ -17,9 +17,9 @@
 
 #include <stdint.h>
 
-static uint64_t volatile *__global_gdt           = (uint64_t*)(GDT_ADDRESS + MEMORY_HDDM_START);
-static TSSEntry volatile *__global_tss           = (TSSEntry*)(TSS_ADDRESS + MEMORY_HDDM_START);
-static uint8_t           *__global_memory_bitmap = (uint8_t*)(MEMORY_BITMAP_PHYS + MEMORY_HDDM_START);;
+static uint64_t volatile *__global_gdt           = (uint64_t*)(GDT_ADDRESS + MEMORY_HHDM_START);
+static TSSEntry volatile *__global_tss           = (TSSEntry*)(TSS_ADDRESS + MEMORY_HHDM_START);
+static uint8_t           *__global_memory_bitmap = (uint8_t*)(MEMORY_BITMAP_PHYS + MEMORY_HHDM_START);
 static IDT64Entry         __global_idt[IDT64_SIZE];
 
 static Serial        __global_serial;

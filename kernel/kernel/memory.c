@@ -63,7 +63,7 @@ void *pmm_alloc() {
         KPANIC("pmm_alloc: allocation failed, no memory left on device");
     }
     kmem_bitmap_set(__pmm_bitmap, idx);
-    return (void*)(uintptr_t)(idx * PAGE_DEFAULT_SIZE);
+    return (void*)(idx * PAGE_DEFAULT_SIZE);
 }
 
 void pmm_free(void* page) {

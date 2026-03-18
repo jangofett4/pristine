@@ -1,7 +1,7 @@
 target remote :1234
 symbol-file bin/boot/stage1/stage1.elf
 symbol-file bin/boot/stage2/stage2.elf
-add-symbol-file root/kernel.elf
+add-symbol-file root/kernel.elf 0xffffffff80200000
 b *0x7c00
 b stage2_boot
 b idt32_isr_handler

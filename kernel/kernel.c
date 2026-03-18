@@ -32,7 +32,7 @@
 #include <stdio.h>
 
 void kmain(uint64_t bootinfo_addr) {
-    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + MEMORY_HDDM_START);
+    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + MEMORY_HHDM_START);
     BootInfo bootinfo = bootinfo_copy(rawbootinfo);
     rawbootinfo = 0;
 
@@ -49,8 +49,8 @@ void kmain(uint64_t bootinfo_addr) {
     // page_invlpg((void*)KERNEL_TSS_RSP0_GUARD);
     // page_invlpg((void*)KERNEL_TSS_IST1_GUARD);
 
-    __global_tss[0].rsp0 = KERNEL_TSS_RSP0_START;
-    __global_tss[0].ist1 = KERNEL_TSS_IST1_START;
+    __global_tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
+    __global_tss[0].ist1 = (uint64_t)__kernel_ist1_start;
 
     gdt_set_tss_entry(__global_gdt, 3, __global_tss, 0x89, 0, sizeof(TSSEntry) - 1);
     gdt_load_gdtr(__global_gdt,  5);
@@ -106,15 +106,9 @@ void kmain(uint64_t bootinfo_addr) {
     printf("Kernel Version %s\n", PRISTINE_VERSION_STR);
 
     printf("KERNEL_BASE_ADDRESS   : %08x\n", KERNEL_BASE_ADDRESS);
-    printf("KERNEL_STACK_START    : %08x\n", KERNEL_STACK_START);
-    printf("KERNEL_STACK_END      : %08x\n", KERNEL_STACK_END);
-    printf("KERNEL_STACK_GUARD    : %08x\n", KERNEL_STACK_GUARD);
-    printf("KERNEL_TSS_RSP0_START : %08x\n", KERNEL_TSS_RSP0_START);
-    printf("KERNEL_TSS_RSP0_END   : %08x\n", KERNEL_TSS_RSP0_END);
-    printf("KERNEL_TSS_RSP0_GUARD : %08x\n", KERNEL_TSS_RSP0_GUARD);
-    printf("KERNEL_TSS_IST1_START : %08x\n", KERNEL_TSS_IST1_START);
-    printf("KERNEL_TSS_IST1_END   : %08x\n", KERNEL_TSS_IST1_END);
-    printf("KERNEL_TSS_IST1_GUARD : %08x\n", KERNEL_TSS_IST1_GUARD);
+    printf("KERNEL_STACK_START    : %08x\n", (uint64_t)__kernel_stack_start);
+    printf("KERNEL_TSS_RSP0_START : %08x\n", (uint64_t)__kernel_rsp0_start);
+    printf("KERNEL_TSS_IST1_START : %08x\n", (uint64_t)__kernel_ist1_start);
 
     // Mark the regions we got from memory map
     if (bootinfo.memory_map_count > MEMMAP_MAX_ITEMS) {
@@ -189,24 +183,33 @@ void kmain(uint64_t bootinfo_addr) {
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
+    // uint8_t *test = (uint8_t*)0xFFFF800000400000ULL;
+    // for (size_t i = 0; i < 0x10000; i++)
+    //     test[i] = (uint8_t)(i & 0xFF);
+    // for (size_t i = 0; i < 0x10000; i++)
+    //     if (test[i] != (uint8_t)(i & 0xFF))
+    //         KPANIC("HHDM mapping broken at offset %x", i);
+
     pmm_set_bitmap(__global_memory_bitmap);
-    
-    // void* file_buf = pmm_alloc() + MEMORY_HDDM_START;
-    // BsfsInode logoinode;
-    // BsfsFile logofile = {
-    //     .buf = file_buf,
-    //     .bufsize = bsfs_header.block_size,
-    //     .inode = &logoinode
-    // };
-    // if (bsfs_fopen(&__global_bsfscontext, "/boot/logo.bin", &logofile) < 0) {
-    //     KPANIC();
-    // }
-    // if (logofile.inode->size >= (2 * sizeof(uint32_t) + 3 * sizeof(uint8_t))) { // literally the minimum size it can go, 1x1 image
-    //     uint32_t w = 0, h = 0;
-    //     bsfs_fread(&__global_bsfscontext, &w, sizeof(uint32_t), 1, &logofile);
-    //     bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
-    // }
-    // pmm_free(file_buf - MEMORY_HDDM_START);
+
+    void* file_buf = (void*)((uint64_t)pmm_alloc() + MEMORY_HHDM_START);
+    BsfsInode logoinode;
+    BsfsFile logofile = {
+        .buf = file_buf,
+        .bufsize = bsfs_header.block_size,
+        .inode = &logoinode
+    };
+    if (bsfs_fopen(&__global_bsfscontext, "/boot/logo.bin", &logofile) < 0) {
+        KPANIC();
+    }
+    if (logofile.inode->size >= (2 * sizeof(uint32_t) + 3 * sizeof(uint8_t))) { // literally the minimum size it can go, 1x1 image
+        uint32_t w = 0, h = 0;
+        bsfs_fread(&__global_bsfscontext, &w, sizeof(uint32_t), 1, &logofile);
+        bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
+        printf("Width: %u\n", w);
+        printf("Width: %u\n", h);
+    }
+    pmm_free(file_buf - MEMORY_HHDM_START);
 
     while(1);
 }
