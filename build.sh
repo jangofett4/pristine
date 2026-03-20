@@ -1,2 +1,2 @@
 #!/bin/sh
-bear -- make all
+bear --append -- make all
