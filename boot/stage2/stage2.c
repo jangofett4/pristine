@@ -209,8 +209,9 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
 
     arena_reset();
     BsfsFile kernel_file = {
-        .buf = (uint8_t*)arena_alloc(header.block_size, 1),
-        .bufsize = header.block_size
+        .buf = (uint8_t*)arena_alloc(header.block_size * 2, 1),
+        .bufsize = header.block_size,
+        .l1_table = (uint32_t*)arena_alloc(header.block_size, 1),
     };
     if (bsfs_fopen(&bsfs_context, "/kernel.elf", &kernel_file) < 0) {
         PANIC("stage2: kernel.elf not found!");
@@ -222,7 +223,8 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
         uint8_t tmp[4096];
         int read = 0;
         if ((read = bsfs_fread(&bsfs_context, tmp, 1, 4096, &kernel_file)) < 0) {
-            PANIC("stage2: unable to checksum kernel.elf, malformed file or filesystem (read = %i)", read);
+            const char* err = bsfs_strerror(read);
+            PANIC("stage2: unable to checksum kernel.elf, malformed file or filesystem (%s)", err);
         }
         checksum = crc32_update(checksum, tmp, read);
     }

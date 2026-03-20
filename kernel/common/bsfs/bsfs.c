@@ -1,6 +1,6 @@
 /*
  * Pristine
- * stage2_bsfs: BSFS related subroutines (file open, read, resolve path etc)
+ * bsfs: BSFS related subroutines (file open, read, resolve path etc)
  * SPDX-License-Identifier: MIT
  */
 
@@ -10,6 +10,7 @@
 
 #include <common/disk.h>
 #include <common/string.h>
+#include <stdint.h>
 
 uint32_t bsfs_resolve_path(const BsfsContext *context, const char* path) {
     // this whole function stinks of not returning a proper error code
@@ -108,7 +109,10 @@ int bsfs_fopen(const BsfsContext *context, const char* path, BsfsFile *file_out)
 
     file_out->position = 0;
     file_out->eof = 0;
-    file_out->cached_block = -1;
+    file_out->cached_block = UINT32_MAX;
+    file_out->cached_l1 = UINT32_MAX;
+    file_out->cached_l2 = UINT32_MAX;
+    file_out->cached_l3 = UINT32_MAX;
 
     return 0;
 }
@@ -135,9 +139,15 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
     uint8_t *bufptr = file->buf;
     const uint32_t start_block = start_offset / context->header->block_size;
     const uint32_t end_block = DIV_CEIL(end_offset, context->header->block_size);
+    
+    const uint32_t l1_capacity = context->header->block_size / sizeof(uint32_t);                                    // 1024
+    const uint32_t l1_indirect_start = sizeof(file->inode->blocks_direct) / sizeof(file->inode->blocks_direct[0]);  // 10
+    const uint32_t l2_indirect_start = l1_indirect_start + l1_capacity;                                             // 10 + 1024 = 1034
+    const uint32_t l3_indirect_start = l2_indirect_start + l1_capacity * l1_capacity;                               // 1034 + (1024 * 1024) = 1049610
+
     for (size_t i = start_block; i < end_block; i++)
     {
-        if ((int64_t)i == file->cached_block) {
+        if (i == file->cached_block) {
             bufptr += context->header->block_size;
             continue;
         }
@@ -155,9 +165,28 @@ int bsfs_fread(const BsfsContext *context, void *ptr, uint32_t size, uint32_t co
         }
         else
         {
-            // L1, L2 & L3 indirection
-            // TODO
-            return BSFS_FREAD_FILE_TOO_BIG;
+            if (i < l2_indirect_start) {
+                if (file->cached_l1 == UINT32_MAX) {
+                    const uint32_t l1_indirect_table_lba = file->inode->blocks_l1indirect * context->header->block_size / context->phys_sector_size;
+                    if (!context->disk_ops->read(l1_indirect_table_lba, sectors_per_block, (uint8_t*)file->l1_table)) {
+                        return BSFS_FREAD_DISK_READ_ERROR;
+                    }
+                    file->cached_l1 = file->inode->blocks_l1indirect;
+                }
+                // We have L1 block ids inside the table now
+                const uint32_t lba = file->l1_table[i - l1_indirect_start] * context->header->block_size / context->phys_sector_size;
+                if (!context->disk_ops->read(lba, sectors_per_block, bufptr)) {
+                    return BSFS_FREAD_DISK_READ_ERROR;
+                }
+                file->cached_block = i;
+                bufptr += context->header->block_size;
+            } else if (i < l3_indirect_start) {
+                // L2 indirect needed
+                return BSFS_FREAD_FILE_TOO_BIG;
+            } else {
+                // L3 indirect needed
+                return BSFS_FREAD_FILE_TOO_BIG;
+            }
         }
     }
     uint32_t offset_in_buf = start_offset % context->header->block_size;
@@ -192,3 +221,12 @@ int bsfs_fclose(BsfsFile *file) {
     file->position = UINT64_MAX;
     return 0;
 }
+
+const char *bsfs_strerror(int err) {
+    switch (err) {
+        #define BSFS_CASE(name, code, msg) case code: return msg;
+        BSFS_ERRORS(BSFS_CASE)
+        default: return "unknown error";
+    }
+}
+#undef BSFS_CASE
