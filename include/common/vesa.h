@@ -7,9 +7,6 @@
 
 #include <stdint.h>
 
-#define VESA_INFO_ADDR      0x7000
-#define VESA_MODE_INFO_ADDR 0x7100
-
 typedef struct {
     char     VbeSignature[4];
     uint16_t VbeVersion;

@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "include/stage2_common.h"
+#include "include/stage2_paging.h"
 
 #include <common/bootinfo.h>
 #include <common/io.h>
@@ -15,7 +16,6 @@
 #include <common/elf.h>
 #include <common/disk.h>
 #include <common/idt32.h>
-#include <common/paging.h>
 #include <common/string.h>
 #include <common/serial.h>
 #include <common/memmap.h>
@@ -29,8 +29,6 @@
 
 #include <lib32/printf/printf.h>
 
-#define KERNEL_PHYS_ADDR 0x400000
-
 // information to be passed to kernel
 static RawBootInfo bootinfo = {0};
 static VesaVbeInfo vesa_vbe_info;
@@ -42,7 +40,7 @@ static uint8_t disk_buf[DISK_READ_MAX_BLOCKS * ATA_PIO_SECTOR_SIZE];
 
 static Serial serial;
 
-uint64_t volatile *__gdt = (uint64_t*)GDT_ADDRESS;
+uint64_t volatile *__gdt = (uint64_t*)STAGE2_GDT_ADDRESS;
 
 #define PIC_ISR_I(i, w) {.type=IDT##w_ISR_INTERRUPT,.handler=idt##w_isr_##i}
 #define PIC_ISR_T(i, w) {.type=IDT##w_ISR_TRAP,.handler=idt##w_isr_##i}
@@ -56,7 +54,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     printf("Stage 2 bootloader started\n");
 
     printf("Getting memory map...\n");
-    uint16_t memmap_count = *(uint16_t*)MEMMAP_COUNT_ADDR;
+    uint16_t memmap_count = *(uint16_t*)STAGE2_MEMMAP_COUNT_ADDR;
     printf("Number of memory map entries: %u\n", memmap_count);
     
     printf("Setting up interrupts...\n");
@@ -195,8 +193,8 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     // bsfs_fclose(&font_file);
     // arena_reset();
 
-    vesa_vbe_info = *(VesaVbeInfo*)VESA_INFO_ADDR;
-    vesa_vbe_mode_info = *(VesaVbeModeInfo*)VESA_MODE_INFO_ADDR;
+    vesa_vbe_info = *(VesaVbeInfo*)STAGE2_VESA_INFO_ADDR;
+    vesa_vbe_mode_info = *(VesaVbeModeInfo*)STAGE2_VESA_MODE_INFO_ADDR;
 
     printf("Loading kernel...\n");
 
@@ -320,11 +318,6 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
 
     bsfs_fclose(&kernel_file);
     arena_reset();
-    
-    bootinfo.memory_map_addr = (uint32_t)(uintptr_t)MEMMAP_ADDR;
-    bootinfo.memory_map_count = memmap_count;
-    bootinfo.vesa_vbe_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_info;
-    bootinfo.vesa_vbe_mode_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_mode_info;
 
     printf("Setting up higher half direct mapping...\n");
     memset((void*)__pg_pml4, 0, PAGE_DEFAULT_SIZE);
@@ -343,7 +336,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     __pg_pd_ident[1]      = (uint64_t)__pg_pt_ident1 | PAGING_PD_DEFAULT_FLAGS;
     
     for (size_t i = 0; i < 4; i++) {
-        __pg_pd_kernel[i] = ((i * PAGE_LARGE_SIZE) + KERNEL_PHYS_ADDR) | PAGING_PD_LARGE_FLAGS;
+        __pg_pd_kernel[i] = ((i * PAGE_LARGE_SIZE) + STAGE2_KERNEL_PHYS_LOAD_ADDR) | PAGING_PD_LARGE_FLAGS;
     }
 
     for (size_t i = 0; i < 512; i++) {
@@ -360,7 +353,17 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     gdt_set_entry(__gdt, 2, 0, 0xFFFFF, 0b10010010, 0xC); // data segment descriptor (present, ring 0, not executable, grows upward, R/W)
     gdt_load_gdtr(__gdt, 3);
 
-    kernel_entry(PG_PML4_ADDRESS, kernel_elf_hdr.e_entry, &bootinfo);
+    bootinfo.memory_map_addr = (uint32_t)(uintptr_t)STAGE2_MEMMAP_ADDR;
+    bootinfo.memory_map_count = memmap_count;
+    bootinfo.vesa_vbe_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_info;
+    bootinfo.vesa_vbe_mode_info_addr = (uint32_t)(uintptr_t)&vesa_vbe_mode_info;
+    bootinfo.memory_bitmap_address = (uint32_t)STAGE2_MEMORY_BITMAP_START;
+    bootinfo.memory_bitmap_size = (uint32_t)STAGE2_MEMORY_BITMAP_SIZE;
+    bootinfo.pml4_address = (uint32_t)STAGE2_PML4_ADDRESS;
+    bootinfo.gdt_address = (uint32_t)STAGE2_GDT_ADDRESS;
+    bootinfo.gdt_entries = 3;
+
+    kernel_entry(STAGE2_PML4_ADDRESS, kernel_elf_hdr.e_entry, &bootinfo);
 
     while (1);
 }

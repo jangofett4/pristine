@@ -78,7 +78,7 @@ void idt32_isr_handler(IDT32ISRFrame *frame) {
 }
 
 void idt32_debug_print_frame(IDT32ISRFrame *frame) {
-    printf(nameof(IDT32ISRFrame) " {\n");
+    printf("IDT32ISRFrame {\n");
     printf(" %-8s = 0x%08x\n", "gs", frame->gs); 
     printf(" %-8s = 0x%08x\n", "fs", frame->fs); 
     printf(" %-8s = 0x%08x\n", "es", frame->es); 

@@ -8,8 +8,6 @@
 
 #include <stdint.h>
 
-#define MEMMAP_ADDR       0x6000 + 2
-#define MEMMAP_COUNT_ADDR (MEMMAP_ADDR - 2)
 #define MEMMAP_MAX_ITEMS  48
 
 typedef struct {

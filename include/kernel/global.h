@@ -6,7 +6,7 @@
 #pragma once
 
 #include <kernel/kernel.h>
-#include <kernel/memory.h>
+#include <kernel/pmm.h>
 #include <common/bsfs/bsfs_ops.h>
 #include <common/disk.h>
 #include <common/serial.h>
@@ -17,9 +17,9 @@
 
 #include <stdint.h>
 
-static uint64_t volatile *__global_gdt           = (uint64_t*)(GDT_ADDRESS + MEMORY_HHDM_START);
-static TSSEntry volatile *__global_tss           = (TSSEntry*)(TSS_ADDRESS + MEMORY_HHDM_START);
-static uint8_t           *__global_memory_bitmap = (uint8_t*)(MEMORY_BITMAP_PHYS + MEMORY_HHDM_START);
+static uint64_t          *__global_gdt;
+static TSSEntry          *__global_tss;
+static uint8_t           *__global_memory_bitmap;
 static IDT64Entry         __global_idt[IDT64_SIZE];
 
 static Serial        __global_serial;

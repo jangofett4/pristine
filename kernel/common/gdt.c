@@ -44,3 +44,28 @@ void gdt_load_gdtr(uint64_t volatile *gdt, uint16_t count) {
 void gdt_load_tss(uint16_t selector) {
     __asm__ volatile ("ltr %0" : : "r"(selector));
 }
+
+void gdt_reload_cs(uint16_t cs) {
+    __asm__ volatile (
+        "pushq %0\n"
+        "leaq 1f(%%rip), %%rax\n"
+        "pushq %%rax\n"
+        "lretq\n"
+        "1:\n"
+        :
+        : "r"((uint64_t)cs)
+        : "rax", "memory"
+    );
+}
+
+void gdt_reload_segments(uint16_t ds) {
+    __asm__ volatile (
+        "mov %0, %%ds\n"
+        "mov %0, %%es\n"
+        "mov %0, %%ss\n"
+        "mov %0, %%fs\n"
+        "mov %0, %%gs\n"
+        :
+        : "r"((uint64_t)ds)
+    );
+}

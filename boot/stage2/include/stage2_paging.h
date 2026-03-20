@@ -6,39 +6,13 @@
 
 #pragma once
 
-#include <kernel/memory.h>
+#include "stage2_common.h"
 #include <common/bootinfo.h>
 #include <stdint.h>
 
 #define PAGE_DEFAULT_SIZE 4096
 #define PAGE_LARGE_SIZE   0x200000
 #define PAGE_HUGE_SIZE    0x40000000
-
-#define PG_PML4_ADDRESS     MEMORY_BITMAP_END
-#define PG_PML4_TABLE_COUNT 1
-
-// we want 3 PDPTs
-// one for the higher half direct mapping, one for kernel and one for the first 2 MiB direct mapping
-
-#define PG_PDPT_ADDRESS     (PG_PML4_ADDRESS + (0x1000 * PG_PML4_TABLE_COUNT))
-#define PG_PDPT_TABLE_COUNT 3
-
-// first PD is kernel direct mapping
-// second one is the bootloader direct mapping
-
-#define PG_PD_ADDRESS       (PG_PDPT_ADDRESS + (0x1000 * PG_PDPT_TABLE_COUNT))
-#define PG_PD_TABLE_COUNT   2
-
-#define PG_PT_ADDRESS       (PG_PD_ADDRESS + (0x1000 * PG_PD_TABLE_COUNT))
-#define PG_PT_TABLE_COUNT   2
-
-_Static_assert(
-    PG_PML4_TABLE_COUNT >= 1 &&
-    PG_PDPT_TABLE_COUNT >= 3 &&
-    PG_PD_TABLE_COUNT >= 2 &&
-    PG_PT_TABLE_COUNT >= 2,
-    "At least 1 PML4, 2 PDPT, 2 PD and 2 PT is needed for 64 bit paging"
-);
 
 #define PG_PML4_IDX(addr) (((addr) >> 39) & 0x1FF)
 #define PG_PDPT_IDX(addr) (((addr) >> 30) & 0x1FF)

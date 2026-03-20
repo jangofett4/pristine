@@ -17,7 +17,7 @@ CFLAGS64 = -ffreestanding -nostdlib -O0 -c -m64 \
 
 LD       = ld.lld
 
-QEMU     = qemu-system-x86_64
+QEMU      = qemu-system-x86_64
 QEMUFLAGS = -m 256 -serial stdio -machine pc
 
 # External libraries

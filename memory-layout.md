@@ -2,33 +2,32 @@
 
 As I keep working on this project, I keep overwriting data I originally placed on a fixed address.
 
-This file (hopefully) will make me more mindful about what I put where. Every address is physical.
+This file (hopefully) will make me more mindful about what I put where.
 
-| Start          | End            | Size           | Description                        |
-| -------------- | -------------- | -------------- | ---------------------------------- |
-| 0x0000         | 0x1000         | 4 KiB          | Reserved, BIOS, IVT, Legacy Code   |
-| 0x1000         | 0x6000         | 5 KiB          | Free                               |
-| 0x6000         | 0x7000         | 4 KiB          | E820h Memory Map (20 byte entries) |
-| 0x7000         | 0x7100         | 256 bytes      | VESA VBE Info Buffer               |
-| 0x7100         | 0x7200         | 256 bytes      | VESA VBE Mode Info Buffer          |
-| 0x7300         | 0x7400         | 256 bytes      | GDT, 32 entries supported          |
-| 0x7400         | 0x7500         | 256 bytes      | TSS, 2 entries supported           |
-| 0x7C00         | 0x7E00         | 512 bytes      | Stage 1 Bootloader                 |
-| 0x7E00         | 0x17C00        | 65024 bytes    | Stage 2 Bootloader (127 sectors)   |
-| 0x17C00        | 0x100000       | 929 KiB        | Reserved (shouldn't be used)       |
-| 0x100000       | 0x1C0000       | 768 KiB        | Memory Bitmap                      |
-| 0x1C0000       | 0x1C1000       | 4 KiB          | PML4 (512 entries available)       |
-| 0x1C1000       | 0x1C2000       | 4 KiB          | PDPT Kernel                        |
-| 0x1C2000       | 0x1C3000       | 4 KiB          | PDPT Higher Half Direct Mapping    |
-| 0x1C3000       | 0x1C4000       | 4 KiB          | PDPT Stage 2 Direct Mapping        |
-| 0x1C4000       | 0x1C5000       | 4 KiB          | PD Kernel                          |
-| 0x1C5000       | 0x1C6000       | 4 KiB          | PD Stage 2 Direct Mapping          |
-| 0x1C6000       | 0x1F7000       | 196 KiB        | Free                               |
-| 0x1F7000       | 0x3F7000       | 2048 KiB       | Free                               | 
-| 0x3F7000       | 0x1F8000       | 4 KiB          | IST1 Guard Page                    |
-| 0x3F8000       | 0x1F8FF8       | 4088 bytes     | IST1                               |
-| 0x3F9000       | 0x1FA000       | 4 KiB          | RSP0 Guard Page                    |
-| 0x3FA000       | 0x1FAFF8       | 4088 bytes     | RSP0                               |
-| 0x3FB000       | 0x1FC000       | 4 KiB          | Kernel Stack Guard Page            |
-| 0x3FC000       | 0x1FFFF8       | 16376 bytes    | Kernel Stack                       |
-| 0x400000       | 0x600000       | 2 MiB          | Kernel                             |
+| Start          | End            | Size           | Description                              |
+| -------------- | -------------- | -------------- | ---------------------------------------- |
+| 0x00000000     | 0x00001000     | 4 KiB          | Reserved, BIOS, IVT, Legacy Code         |
+| 0x00001000     | 0x00006000     | 20 KiB         | Free                                     |
+| 0x00006000     | 0x00006002     | 2 bytes        | E820h Memory Map Entry Count             |
+| 0x00006002     | 0x00007000     | ~4 KiB         | E820h Memory Map (20 byte entries)       |
+| 0x00007000     | 0x00007100     | 256 bytes      | VESA VBE Info Buffer                     |
+| 0x00007100     | 0x00007200     | 256 bytes      | VESA VBE Mode Info Buffer                |
+| 0x00007300     | 0x00007400     | 256 bytes      | GDT (stage 2 only, 32 entries)           |
+| 0x00007C00     | 0x00007E00     | 512 bytes      | Stage 1 Bootloader                       |
+| 0x00007E00     | 0x00017C00     | ~64 KiB        | Stage 2 Bootloader (127 sectors)         |
+| 0x00017C00     | 0x00100000     | ~929 KiB       | Reserved (BIOS ROM, EBDA, do not use)    |
+| 0x00100000     | 0x001C0000     | 768 KiB        | Physical Memory Bitmap (24 GiB coverage) |
+| 0x001C0000     | 0x001C1000     | 4 KiB          | PML4 (1 table, 512 entries)              |
+| 0x001C1000     | 0x001C4000     | 12 KiB         | PDPTs (3 tables: kernel, HHDM, stage 2)  |
+| 0x001C4000     | 0x001C6000     | 8 KiB          | PDs (2 tables: kernel, stage 2)          |
+| 0x001C6000     | 0x001C8000     | 8 KiB          | PTs (2 tables: 0-2MiB, 2-4MiB)           |
+| 0x001C8000     | 0x00400000     | ~2.2 MiB       | Free                                     |
+| 0x00400000     | 0x00600000     | 2 MiB          | Kernel ELF (physical load address)       |
+
+### Notes
+
+- Stage 2 GDT at 0x7300 is copied and relocated by kernel early init via PMM
+- TSS is not set up by stage 2, kernel allocates and initializes fresh via PMM
+- Page tables are stage 2 bootstrap only, VMM replaces them
+- Kernel runs at virtual 0xFFFFFFFF80400000, physical 0x400000
+- Everything above 0x600000 is managed by PMM based on E820 map

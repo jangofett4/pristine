@@ -7,10 +7,12 @@
 #include <stdint.h>
 
 #include <pristine.h>
+#include <kernel/panic.h>
 #include <kernel/kernel.h>
 #include <kernel/global.h>
-#include <kernel/memory.h>
-#include <kernel/panic.h>
+#include <kernel/pmm.h>
+#include <kernel/vmm.h>
+#include <common/common.h>
 #include <common/pic.h>
 #include <common/gdt.h>
 #include <common/disk.h>
@@ -18,12 +20,13 @@
 #include <common/arena.h>
 #include <common/serial.h>
 #include <common/string.h>
-#include <common/paging.h>
 #include <common/bootinfo.h>
 
 #include <common/bsfs/bsfs.h>
 #include <common/bsfs/bsfs_ops.h>
 #include <common/bsfs/bsfs_defaults.h>
+
+#include <bitmap.h>
 
 #include <drivers/storage/ata/atapio.h>
 #include <drivers/video/video.h>
@@ -32,12 +35,12 @@
 #include <stdio.h>
 
 void kmain(uint64_t bootinfo_addr) {
-    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + MEMORY_HHDM_START);
+    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + PMM_HHDM_START);
     BootInfo bootinfo = bootinfo_copy(rawbootinfo);
     rawbootinfo = 0;
 
-    __pg_pml4[0] = 0;
-    page_invlpg((void*)__pg_pml4);
+    // bootinfo.pml4[0] = 0;
+    // vmm_invlpg((void*)bootinfo.pml4);
 
     // following statements only work because we are at 2 MiB mark
     // honestly one of the ugliest assumptions I did in this project
@@ -49,13 +52,7 @@ void kmain(uint64_t bootinfo_addr) {
     // page_invlpg((void*)KERNEL_TSS_RSP0_GUARD);
     // page_invlpg((void*)KERNEL_TSS_IST1_GUARD);
 
-    __global_tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
-    __global_tss[0].ist1 = (uint64_t)__kernel_ist1_start;
-
-    gdt_set_tss_entry(__global_gdt, 3, __global_tss, 0x89, 0, sizeof(TSSEntry) - 1);
-    gdt_load_gdtr(__global_gdt,  5);
-    gdt_load_tss(0x18);
-
+    // ======== IDT64 ========
     idt64_disable_interrupts();
 
     IDT64ISRHandler isr_table[] = {
@@ -90,17 +87,26 @@ void kmain(uint64_t bootinfo_addr) {
     idt_ptr.base = (uint64_t)(uintptr_t)&__global_idt;
 
     idt64_load_idtr(&idt_ptr);
+
+    // ======== PIC ========
+
     pic_init();
 
     idt64_enable_interrupts();
 
     pic_unmask_irq(1);
 
+    // ======== Globals ========
+
     serial_init(&__global_serial, 0x3F8);
     serial_set_default(&__global_serial);
 
     video_init(&__global_video, &bootinfo.vesa_vbe_mode_info);
     video_set_default(&__global_video);
+
+    __global_memory_bitmap = bootinfo.memory_bitmap;
+    pmm_init(__global_memory_bitmap, bootinfo.memory_bitmap_size);
+    bitmap_clear_all(__global_memory_bitmap, bootinfo.memory_bitmap_size);
 
     printf("Pristine\n");
     printf("Kernel Version %s\n", PRISTINE_VERSION_STR);
@@ -110,23 +116,31 @@ void kmain(uint64_t bootinfo_addr) {
     printf("KERNEL_TSS_RSP0_START : %08x\n", (uint64_t)__kernel_rsp0_start);
     printf("KERNEL_TSS_IST1_START : %08x\n", (uint64_t)__kernel_ist1_start);
 
-    // Mark the regions we got from memory map
+    // ======== Memory Map ========
+
     if (bootinfo.memory_map_count > MEMMAP_MAX_ITEMS) {
         KPANIC("kernel: memory map exceeds maximum items of %i, possibly malformed memory", MEMMAP_MAX_ITEMS);
     }
 
+    __kernel_system_memory = 0;
+    // Mark the regions we got from memory map
     for (size_t i = 0; i < bootinfo.memory_map_count; i++) {
         MemmapEntry *entry = bootinfo.memory_map + i;
         uint64_t entry_base = (uint64_t)entry->BaseAddrHigh << 32 | (uint64_t)entry->BaseAddrLow;
         uint64_t entry_size = (uint64_t)entry->LengthHigh << 32 | (uint64_t)entry->LengthLow;
-        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", entry_base, entry_base + entry_size, entry_size / 1024);
+
+        uint64_t base = ALIGN_UP(entry_base, VMM_DEFAULT_PAGE_SIZE);
+        uint64_t end  = ALIGN_UP(entry_base + entry_size, VMM_DEFAULT_PAGE_SIZE);
+
+        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", base, end, entry_size / 1024);
         if (entry->Type == 1) {
-            for (uint64_t m = entry_base; m < entry_base + entry_size; m += 4096) {
-                kmem_bitmap_clear(__global_memory_bitmap, m / 4096);
+            __kernel_system_memory += entry_size;
+            for (uint64_t m = base; m < end; m += VMM_DEFAULT_PAGE_SIZE) {
+                bitmap_clear(__global_memory_bitmap, m / VMM_DEFAULT_PAGE_SIZE);
             }
         } else {
-            for (uint64_t m = entry_base; m < entry_base + entry_size; m += 4096) {
-                kmem_bitmap_set(__global_memory_bitmap, m / 4096);
+            for (uint64_t m = base; m < end; m += VMM_DEFAULT_PAGE_SIZE) {
+                bitmap_set(__global_memory_bitmap, m / VMM_DEFAULT_PAGE_SIZE);
             }
         }
         switch (entry->Type) {
@@ -154,11 +168,67 @@ void kmain(uint64_t bootinfo_addr) {
         }
         printf("\n");
     }
-    
-    // mark the regions we are currently using (4 MiB)
-    for (size_t i = 0; i < 0x400000; i += 0x1000) {
-        kmem_bitmap_set(__global_memory_bitmap, i / 0x1000);
+
+    // ======== Memory Map (continued) ========
+
+    uint64_t memory_bitmap_start_phys = ((uint64_t)bootinfo.memory_bitmap) - PMM_HHDM_START;
+    uint64_t memory_bitmap_end_phys   = memory_bitmap_start_phys + bootinfo.memory_bitmap_size;
+
+    uint64_t memory_bitmap_start_phys_aligned = ALIGN_UP(memory_bitmap_start_phys, VMM_DEFAULT_PAGE_SIZE);
+    uint64_t memory_bitmap_end_phys_aligned   = ALIGN_DOWN(memory_bitmap_end_phys, VMM_DEFAULT_PAGE_SIZE);
+
+    printf("Memory Bitmap Start: %llu, End: %llu (Size: %llu, Covers %llu MiB)\n", 
+        memory_bitmap_start_phys_aligned, 
+        memory_bitmap_end_phys_aligned, 
+        memory_bitmap_end_phys - memory_bitmap_start_phys, 
+        (memory_bitmap_end_phys - memory_bitmap_start_phys) * 8 * VMM_DEFAULT_PAGE_SIZE / 1024 / 1024
+    );
+
+    // mark memory bitmap as used
+    for (size_t i = memory_bitmap_start_phys_aligned; i < memory_bitmap_end_phys_aligned; i += VMM_DEFAULT_PAGE_SIZE) {
+        bitmap_set(__global_memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
+
+    // mark kernel memory area as used
+    for (size_t i = KERNEL_BASE_PHYS; i < KERNEL_END_PHYS; i += VMM_DEFAULT_PAGE_SIZE) {
+        bitmap_set(__global_memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
+    }
+
+    // mark dangerous regions as used, no need to allocate 16 KiB of space here, but just being careful here
+    bitmap_set(__global_memory_bitmap, 0);
+    bitmap_set(__global_memory_bitmap, 1);
+    bitmap_set(__global_memory_bitmap, 2);
+    bitmap_set(__global_memory_bitmap, 3);
+
+    printf("Total Usable Memory: %llu MiB\n", __kernel_system_memory / 1024 / 1024);
+
+    // ======== GDT, TSS ========
+
+    __global_gdt = phys_to_virt(pmm_alloc());
+    __global_tss = phys_to_virt(pmm_alloc());
+
+    printf("GDT %p\n", __global_gdt);
+    printf("TSS %p\n", __global_gdt);
+
+    memcpy(__global_gdt, bootinfo.gdt, bootinfo.gdt_entries * sizeof(uint64_t));
+    
+    __global_tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
+    __global_tss[0].ist1 = (uint64_t)__kernel_ist1_start;
+
+    printf("TSS.RSP0 %p\n", __kernel_rsp0_start);
+    printf("TSS.IST1 %p\n", __kernel_ist1_start);
+
+    gdt_set_tss_entry(__global_gdt, 3, (void*)virt_to_phys(__global_tss), 0x89, 0, sizeof(TSSEntry) - 1);
+    gdt_load_gdtr(__global_gdt, 5);
+    gdt_reload_cs(0x08);
+    gdt_reload_segments(0x10);
+    gdt_load_tss(0x18);
+
+    // ======== Paging ========
+
+    // TODO: Load up new PML4, nuke the old one, needs testing
+
+    // ======== BSFS ========
 
     __global_diskops = ata_pio_get_disk_ops();
 
@@ -182,42 +252,6 @@ void kmain(uint64_t bootinfo_addr) {
         .scratch_buf = __global_disk_scratchbuf,
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
-
-    pmm_set_bitmap(__global_memory_bitmap);
-
-    void* file_buf = (void*)((uint64_t)pmm_alloc() + MEMORY_HHDM_START);
-    BsfsInode logoinode;
-    BsfsFile logofile = {
-        .buf = file_buf,
-        .bufsize = bsfs_header.block_size,
-        .inode = &logoinode
-    };
-    if (bsfs_fopen(&__global_bsfscontext, "/boot/logo.bin", &logofile) < 0) {
-        KPANIC();
-    }
-    if (logofile.inode->size >= (2 * sizeof(uint32_t) + 3 * sizeof(uint8_t))) { // literally the minimum size it can go, 1x1 image
-        uint32_t w = 0, h = 0;
-        bsfs_fread(&__global_bsfscontext, &w, sizeof(uint32_t), 1, &logofile);
-        bsfs_fread(&__global_bsfscontext, &h, sizeof(uint32_t), 1, &logofile);
-        printf("Width: %u\n", w);
-        printf("Width: %u\n", h);
-        uint32_t *fb = (uint32_t*)(__global_video.address + MEMORY_HHDM_START);
-        for (size_t y = 0; y < h; y++) {
-            for (size_t x = 0; x < w; x++) {
-                uint8_t r, g, b;
-                bsfs_fread(&__global_bsfscontext, &r, 1, 1, &logofile);
-                bsfs_fread(&__global_bsfscontext, &g, 1, 1, &logofile);
-                bsfs_fread(&__global_bsfscontext, &b, 1, 1, &logofile);
-                uint32_t *pixel_pos = (uint32_t*)((uint8_t*)fb + (y * __global_video.bytes_per_scanline) + (x * 4));
-                *pixel_pos = 
-                    0xFF000000U       |
-                    (uint32_t)r << 16 |
-                    (uint32_t)g << 8  |
-                    (uint32_t)b       ;
-            }
-        }
-    }
-    pmm_free(file_buf - MEMORY_HHDM_START);
 
     while(1);
 }
