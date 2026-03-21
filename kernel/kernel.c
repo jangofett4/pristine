@@ -126,13 +126,13 @@ void kmain(uint64_t bootinfo_addr) {
     pmm_init(__global_memory_bitmap, __global_bootinfo.memory_bitmap_size);
     bitmap_clear_all(__global_memory_bitmap, __global_bootinfo.memory_bitmap_size);
 
-    printf("Pristine\n");
-    printf("Kernel Version " PRISTINE_VERSION_STR "\n");
+    printf_("Pristine\n");
+    printf_("Kernel Version " PRISTINE_VERSION_STR "\n");
 
-    printf("KERNEL_BASE_VIRT      : %x\n", KERNEL_BASE_VIRT);
-    printf("KERNEL_STACK_START    : %x\n", (uint64_t)__kernel_stack_start);
-    printf("KERNEL_TSS_RSP0_START : %x\n", (uint64_t)__kernel_rsp0_start);
-    printf("KERNEL_TSS_IST1_START : %x\n", (uint64_t)__kernel_ist1_start);
+    printf_("KERNEL_BASE_VIRT      : %llx\n", KERNEL_BASE_VIRT);
+    printf_("KERNEL_STACK_START    : %lx\n", (uint64_t)__kernel_stack_start);
+    printf_("KERNEL_TSS_RSP0_START : %lx\n", (uint64_t)__kernel_rsp0_start);
+    printf_("KERNEL_TSS_IST1_START : %lx\n", (uint64_t)__kernel_ist1_start);
 
     // ======== Memory Map ========
 
@@ -150,7 +150,7 @@ void kmain(uint64_t bootinfo_addr) {
         uint64_t base = ALIGN_UP(entry_base, VMM_DEFAULT_PAGE_SIZE);
         uint64_t end  = ALIGN_UP(entry_base + entry_size, VMM_DEFAULT_PAGE_SIZE);
 
-        printf(" 0x%016llx:0x%016llx (%llu KiB), Type: ", base, end, entry_size / 1024);
+        printf_(" 0x%016lx:0x%016lx (%lu KiB), Type: ", base, end, entry_size / 1024);
         if (entry->Type == 1) {
             __kernel_system_memory += entry_size;
             for (uint64_t m = base; m < end; m += VMM_DEFAULT_PAGE_SIZE) {
@@ -163,28 +163,28 @@ void kmain(uint64_t bootinfo_addr) {
         }
         switch (entry->Type) {
             case 1:
-                printf("Usable");
+                printf_("Usable");
                 break;
             case 2:
-                printf("Reserved");
+                printf_("Reserved");
                 break;
             case 3:
-                printf("ACPI");
+                printf_("ACPI");
                 break;
             case 4:
-                printf("NVS");
+                printf_("NVS");
                 break;
             case 5:
-                printf("Unusable");
+                printf_("Unusable");
                 break;
             case 6:
-                printf("Disabled");
+                printf_("Disabled");
                 break;
             default:
-                printf("Unknown");
+                printf_("Unknown");
                 break;
         }
-        printf("\n");
+        printf_("\n");
     }
 
     // ======== Memory Map (continued) ========
@@ -195,7 +195,7 @@ void kmain(uint64_t bootinfo_addr) {
     uint64_t memory_bitmap_start_phys_aligned = ALIGN_UP(memory_bitmap_start_phys, VMM_DEFAULT_PAGE_SIZE);
     uint64_t memory_bitmap_end_phys_aligned   = ALIGN_DOWN(memory_bitmap_end_phys, VMM_DEFAULT_PAGE_SIZE);
 
-    printf("Memory Bitmap Start: %llu, End: %llu (Size: %llu, Covers %llu MiB)\n", 
+    printf_("Memory Bitmap Start: %lu, End: %lu (Size: %lu, Covers %lu MiB)\n", 
         memory_bitmap_start_phys_aligned, 
         memory_bitmap_end_phys_aligned, 
         memory_bitmap_end_phys - memory_bitmap_start_phys, 
@@ -217,23 +217,23 @@ void kmain(uint64_t bootinfo_addr) {
         bitmap_set(__global_memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
-    printf("Total Usable Memory: %llu MiB\n", __kernel_system_memory / 1024 / 1024);
+    printf_("Total Usable Memory: %llu MiB\n", __kernel_system_memory / 1024 / 1024);
 
     // ======== GDT, TSS ========
 
     __global_gdt = phys_to_virt(pmm_alloc());
     __global_tss = phys_to_virt(pmm_alloc());
 
-    printf("GDT %p\n", __global_gdt);
-    printf("TSS %p\n", __global_gdt);
+    printf_("GDT %p\n", __global_gdt);
+    printf_("TSS %p\n", __global_gdt);
 
     memcpy(__global_gdt, __global_bootinfo.gdt, __global_bootinfo.gdt_entries * sizeof(uint64_t));
     
     __global_tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
     __global_tss[0].ist1 = (uint64_t)__kernel_ist1_start;
 
-    printf("TSS.RSP0 %p\n", __kernel_rsp0_start);
-    printf("TSS.IST1 %p\n", __kernel_ist1_start);
+    printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
+    printf_("TSS.IST1 %p\n", __kernel_ist1_start);
 
     gdt_set_tss_entry(__global_gdt, 3, (void*)virt_to_phys(__global_tss), 0x89, 0, sizeof(TSSEntry) - 1);
     gdt_load_gdtr(__global_gdt, 5);
@@ -307,7 +307,7 @@ void kmain(uint64_t bootinfo_addr) {
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
-    printf("BSFS Version %x\n", bsfs_header.version);
+    printf_("BSFS Version %x\n", bsfs_header.version);
 
     while(1);
 }

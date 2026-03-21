@@ -32,6 +32,17 @@ kernel_entry:
     or eax, (1 << 31)
     mov cr0, eax
 
+    ; We are going to just assume SSE is present on the CPU
+    ; Enable SSE
+    mov eax, cr0
+    and eax, ~(1 << 2)
+    or eax, (1 << 1)
+    mov cr0, eax
+
+    mov eax, cr4
+    or eax, (1 << 9) | (1 << 10)
+    mov cr4, eax
+
     jmp 0x08:.stage2_farjump
 
 [bits 64]

@@ -60,8 +60,8 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
     IDT64ISRDispatch handler = dispatch_table[frame->int_no];
     
     if (!handler) {
-        printf("Error: Unhandled unmasked vector %d\n", frame->int_no);
-        idt64_debug_print_frame(frame);
+        // printf("idt64_isr_handler: unhandled vector 0x%016x\n", frame->int_no);
+        // idt64_debug_print_frame(frame);
         if (frame->int_no < 32) {
             // CPU exception with no handler = panic, halt
             uint64_t cr2, cr3, fs, gs;
@@ -69,7 +69,7 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
             __asm__ volatile("mov %%cr3, %0" : "=r"(cr3) :);
             __asm__ volatile("mov %%fs, %0" : "=r"(fs) :);
             __asm__ volatile("mov %%gs, %0" : "=r"(gs) :);
-            KPANIC("Unhandled exception %d, error code 0x%x {\n CR2 = 0x%016x\n CR3 = 0x%016x\n FS = 0x%016x\n GS = 0x%016x\n}", frame->int_no, frame->err_code, cr2, cr3, fs, gs);
+            KPANIC("Unhandled exception 0x%lx, error code 0x%lx {\n CR2 = 0x%016lx\n CR3 = 0x%016lx\n FS = 0x%016lx\n GS = 0x%016lx\n}", frame->int_no, frame->err_code, cr2, cr3, fs, gs);
         }
     } else {
         handler(frame);
@@ -86,28 +86,28 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
 }
 
 void idt64_debug_print_frame(IDT64ISRFrame *frame) {
-    printf("IDT64ISRFrame {\n");
-    printf(" %-8s = 0x%016x\n", "rax", frame->rax);
-    printf(" %-8s = 0x%016x\n", "rbx", frame->rbx);
-    printf(" %-8s = 0x%016x\n", "rcx", frame->rcx);
-    printf(" %-8s = 0x%016x\n", "rdx", frame->rdx);
-    printf(" %-8s = 0x%016x\n", "rsi", frame->rsi);
-    printf(" %-8s = 0x%016x\n", "rdi", frame->rdi);
-    printf(" %-8s = 0x%016x\n", "rbp", frame->rbp);
-    printf(" %-8s = 0x%016x\n", "r8", frame->r8);
-    printf(" %-8s = 0x%016x\n", "r9", frame->r9);
-    printf(" %-8s = 0x%016x\n", "r10", frame->r10);
-    printf(" %-8s = 0x%016x\n", "r11", frame->r11);
-    printf(" %-8s = 0x%016x\n", "r12", frame->r12);
-    printf(" %-8s = 0x%016x\n", "r13", frame->r13);
-    printf(" %-8s = 0x%016x\n", "r14", frame->r14);
-    printf(" %-8s = 0x%016x\n", "r15", frame->r15);
-    printf(" %-8s = 0x%016x\n", "int_no", frame->int_no);
-    printf(" %-8s = 0x%016x\n", "err_code", frame->err_code);
-    printf(" %-8s = 0x%016x\n", "rip", frame->rip);
-    printf(" %-8s = 0x%016x\n", "cs", frame->cs);
-    printf(" %-8s = 0x%016x\n", "rflags", frame->rflags);
-    printf(" %-8s = 0x%016x\n", "ss", frame->ss);
-    printf(" %-8s = 0x%016x\n", "rsp", frame->rsp);
-    printf("}\n");
+    printf_("IDT64ISRFrame {\n");
+    printf_(" %-8s = 0x%016lx\n", "rax", frame->rax);
+    printf_(" %-8s = 0x%016lx\n", "rbx", frame->rbx);
+    printf_(" %-8s = 0x%016lx\n", "rcx", frame->rcx);
+    printf_(" %-8s = 0x%016lx\n", "rdx", frame->rdx);
+    printf_(" %-8s = 0x%016lx\n", "rsi", frame->rsi);
+    printf_(" %-8s = 0x%016lx\n", "rdi", frame->rdi);
+    printf_(" %-8s = 0x%016lx\n", "rbp", frame->rbp);
+    printf_(" %-8s = 0x%016lx\n", "r8", frame->r8);
+    printf_(" %-8s = 0x%016lx\n", "r9", frame->r9);
+    printf_(" %-8s = 0x%016lx\n", "r10", frame->r10);
+    printf_(" %-8s = 0x%016lx\n", "r11", frame->r11);
+    printf_(" %-8s = 0x%016lx\n", "r12", frame->r12);
+    printf_(" %-8s = 0x%016lx\n", "r13", frame->r13);
+    printf_(" %-8s = 0x%016lx\n", "r14", frame->r14);
+    printf_(" %-8s = 0x%016lx\n", "r15", frame->r15);
+    printf_(" %-8s = 0x%016lx\n", "int_no", frame->int_no);
+    printf_(" %-8s = 0x%016lx\n", "err_code", frame->err_code);
+    printf_(" %-8s = 0x%016lx\n", "rip", frame->rip);
+    printf_(" %-8s = 0x%016lx\n", "cs", frame->cs);
+    printf_(" %-8s = 0x%016lx\n", "rflags", frame->rflags);
+    printf_(" %-8s = 0x%016lx\n", "ss", frame->ss);
+    printf_(" %-8s = 0x%016lx\n", "rsp", frame->rsp);
+    printf_("}\n");
 }

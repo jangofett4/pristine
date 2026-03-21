@@ -7,7 +7,7 @@
 #include <kernel/kernel.h>
 #include <kernel/global.h>
 
-void _putchar(char ch) {
+void putchar_(char ch) {
     Serial *serial = serial_get_default();
     if (serial) serial_putch(serial, ch);
 }

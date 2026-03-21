@@ -160,7 +160,7 @@ AtaPioReadStatus ata_pio_readsectors(uint32_t lba, uint8_t sectors_to_read, uint
         {
             status = ata_pio_get_status();
             if (!status.flags.drq || status.flags.err) {
-                KPANIC("ata_pio_readsectors: lost DRQ at sector=%d i=%d status=%02x", sector, i, status.raw);
+                KPANIC("ata_pio_readsectors: lost DRQ at sector=%d i=%zu status=%02x", sector, i, status.raw);
             }
             buf16[i + (sector * 256)] = ata_pio_read_dataport();
         }
