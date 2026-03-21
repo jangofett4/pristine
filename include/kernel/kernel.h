@@ -10,7 +10,7 @@
 #define KERNEL_BASE_PHYS      (0x400000)
 #define KERNEL_END_PHYS       (KERNEL_BASE_PHYS + 0x200000)
 
-#define KERNEL_BASE_ADDRESS   (0xFFFFFFFF80000000ULL)
+#define KERNEL_BASE_VIRT      (0xFFFFFFFF80000000ULL + KERNEL_BASE_PHYS)
 
 extern uint8_t __kernel_ist1_start[];
 extern uint8_t __kernel_rsp0_start[];

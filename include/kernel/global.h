@@ -7,6 +7,7 @@
 
 #include <kernel/kernel.h>
 #include <kernel/pmm.h>
+#include <common/bootinfo.h>
 #include <common/bsfs/bsfs_ops.h>
 #include <common/disk.h>
 #include <common/serial.h>
@@ -17,10 +18,12 @@
 
 #include <stdint.h>
 
+static BootInfo           __global_bootinfo;
 static uint64_t          *__global_gdt;
 static TSSEntry          *__global_tss;
 static uint8_t           *__global_memory_bitmap;
 static IDT64Entry         __global_idt[IDT64_SIZE];
+static IDT64ISRHandler    __global_isr_table[IDT64_SIZE];
 
 static Serial        __global_serial;
 static Video         __global_video;

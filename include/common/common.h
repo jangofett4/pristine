@@ -20,3 +20,7 @@ static inline void *phys_to_virt(uint64_t phys) {
 static inline uint64_t virt_to_phys(void *virt) {
     return (uint64_t)virt - PMM_HHDM_START;
 }
+
+static inline int is_aligned(uint64_t addr, uint64_t alignment) {
+    return (addr & (alignment -1)) == 0;
+}

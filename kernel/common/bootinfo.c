@@ -14,6 +14,9 @@
 
 BootInfo bootinfo_copy(const RawBootInfo *ptr) {
     BootInfo bootinfo;
+
+    bootinfo.raw = *ptr;
+    
     for (size_t i = 0; i < ptr->memory_map_count; i++) {
         bootinfo.memory_map[i] = ((MemmapEntry*)(uintptr_t)(ptr->memory_map_addr + PMM_HHDM_START))[i];
     }
@@ -26,6 +29,8 @@ BootInfo bootinfo_copy(const RawBootInfo *ptr) {
     bootinfo.memory_bitmap_size = ptr->memory_bitmap_size;
 
     bootinfo.pml4 = (uint64_t*)((uintptr_t)ptr->pml4_address + PMM_HHDM_START);
+    bootinfo.page_table_count = ptr->page_table_count;
+
     bootinfo.gdt = (uint64_t*)((uintptr_t)ptr->gdt_address + PMM_HHDM_START);
     bootinfo.gdt_entries = ptr->gdt_entries;
 

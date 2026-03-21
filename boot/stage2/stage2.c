@@ -336,7 +336,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     __pg_pd_ident[1]      = (uint64_t)__pg_pt_ident1 | PAGING_PD_DEFAULT_FLAGS;
     
     for (size_t i = 0; i < 4; i++) {
-        __pg_pd_kernel[i] = ((i * PAGE_LARGE_SIZE) + STAGE2_KERNEL_PHYS_LOAD_ADDR) | PAGING_PD_LARGE_FLAGS;
+        __pg_pd_kernel[i] = (i * PAGE_LARGE_SIZE) | PAGING_PD_LARGE_FLAGS;
     }
 
     for (size_t i = 0; i < 512; i++) {
@@ -360,8 +360,11 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     bootinfo.memory_bitmap_address = (uint32_t)STAGE2_MEMORY_BITMAP_START;
     bootinfo.memory_bitmap_size = (uint32_t)STAGE2_MEMORY_BITMAP_SIZE;
     bootinfo.pml4_address = (uint32_t)STAGE2_PML4_ADDRESS;
+    bootinfo.page_table_count = STAGE2_PML4_TABLE_COUNT + STAGE2_PDPT_TABLE_COUNT + STAGE2_PDPT_TABLE_COUNT + STAGE2_PT_TABLE_COUNT;
     bootinfo.gdt_address = (uint32_t)STAGE2_GDT_ADDRESS;
     bootinfo.gdt_entries = 3;
+
+    printf("Stage 2 handoff complete, enabling paging and jumping to kernel...\n");
 
     kernel_entry(STAGE2_PML4_ADDRESS, kernel_elf_hdr.e_entry, &bootinfo);
 

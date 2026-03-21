@@ -19,12 +19,15 @@ typedef struct {
     uint32_t memory_bitmap_address;
     uint32_t memory_bitmap_size;
     uint32_t pml4_address;
+    uint32_t page_table_count;
 
     uint32_t gdt_address;
     uint32_t gdt_entries;
 } RawBootInfo;
 
 typedef struct {
+    RawBootInfo raw;
+    
     MemmapEntry memory_map[MEMMAP_MAX_ITEMS];
     uint16_t memory_map_count;
 
@@ -34,6 +37,9 @@ typedef struct {
 
     // initial PML4 resides on non-kernel allocated memory
     uint64_t *pml4;
+
+    // initial page table count, assumed to be continuous
+    uint32_t  page_table_count;
 
     // initial GDT resides on non-kernel allocated memory
     uint64_t *gdt;

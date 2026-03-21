@@ -1,15 +1,11 @@
 global _start
 extern kmain
 
-section .bss
-align 16
-kernel_stack_bottom:
-    resb 16384
-kernel_stack_top:
+extern __kernel_stack_start
 
 section .text
 _start:
-    mov rsp, kernel_stack_top
+    mov rsp, __kernel_stack_start
     mov rbp, rsp
 
     extern kmain

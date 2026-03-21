@@ -2,7 +2,7 @@ ENTRY(_start)
 
 phys_base = 0x400000;
 virt_base = 0xFFFFFFFF80000000;
-offset = virt_base - phys_base;
+offset = virt_base;
 
 SECTIONS
 {
