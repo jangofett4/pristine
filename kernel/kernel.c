@@ -217,7 +217,7 @@ void kmain(uint64_t bootinfo_addr) {
         bitmap_set(__global_memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
-    printf_("Total Usable Memory: %llu MiB\n", __kernel_system_memory / 1024 / 1024);
+    printf_("Total Usable Memory: %zu MiB\n", __kernel_system_memory / 1024 / 1024);
 
     // ======== GDT, TSS ========
 
@@ -292,22 +292,21 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC("unable to read disk");
     }
 
-    BsfsHeader bsfs_header;
-    memcpy(&bsfs_header, __global_tmp_diskbuf, sizeof(BsfsHeader));
+    memcpy(&__global_bsfsheader, __global_tmp_diskbuf, sizeof(BsfsHeader));
 
-    if (bsfs_header.block_size != PRISTINE_BSFS_BLOCKSIZE) {
-        KPANIC("invalid filesystem block size, expected %i, got %u", PRISTINE_BSFS_BLOCKSIZE, bsfs_header.block_size);
+    if (__global_bsfsheader.block_size != PRISTINE_BSFS_BLOCKSIZE) {
+        KPANIC("invalid filesystem block size, expected %i, got %u", PRISTINE_BSFS_BLOCKSIZE, __global_bsfsheader.block_size);
     }
 
     __global_bsfscontext = (BsfsContext){
         .disk_ops = &__global_diskops,
-        .header = &bsfs_header,
+        .header = &__global_bsfsheader,
         .phys_sector_size = ATA_PIO_SECTOR_SIZE,
         .scratch_buf = __global_disk_scratchbuf,
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
-    printf_("BSFS Version %x\n", bsfs_header.version);
+    printf_("BSFS Version %x\n", __global_bsfsheader.version);
 
     while(1);
 }

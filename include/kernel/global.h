@@ -28,6 +28,7 @@ static IDT64ISRHandler    __global_isr_table[IDT64_SIZE];
 static Serial        __global_serial;
 static Video         __global_video;
 static DiskOpsVtable __global_diskops;
+static BsfsHeader    __global_bsfsheader;
 static BsfsContext   __global_bsfscontext;
 
 static uint8_t __global_tmp_diskbuf[ATA_PIO_SECTOR_SIZE];
