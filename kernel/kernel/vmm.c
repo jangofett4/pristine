@@ -73,6 +73,49 @@ void vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
     table_ptr[ptidx] = phys | flags;
 }
 
+void vmm_unmap(uint64_t *pml4, uint64_t virt) {
+    const uint16_t pml4idx = VMM_PML4_IDX(virt);
+    const uint16_t pdptidx = VMM_PDPT_IDX(virt);
+    const uint16_t pdidx   = VMM_PD_IDX(virt);
+    const uint16_t ptidx   = VMM_PT_IDX(virt);
+    uint64_t *table_ptr;
+
+    #ifdef PRISTINE_DEBUG
+    if (!is_aligned(virt, VMM_DEFAULT_PAGE_SIZE)) {
+        KPANIC("vmm_unmap: unaligned virtual address 0x%lx", virt);
+    }
+    #endif
+
+    if (pml4[pml4idx] == 0) {
+        KPANIC("vmm_unmap: PDPT table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+    }
+
+    if (table_ptr[pdptidx] == 0) {
+        KPANIC("vmm_unmap: PD table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(table_ptr[pdptidx] & VMM_PTE_ADDR_MASK);
+    }
+
+    if (table_ptr[pdidx] == 0) {
+        KPANIC("vmm_unmap: PT table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(table_ptr[pdidx] & VMM_PTE_ADDR_MASK);
+    }
+
+    #ifdef PRISTINE_DEBUG
+    if (table_ptr[ptidx] == 0)
+        KPANIC("vmm_unmap: mapping for 0x%lx doesn't exist", virt);
+    if (table_ptr[pdptidx] & VMM_LARGE_PAGE_SIZE)
+        KPANIC("vmm_unmap_huge: mapping for 0x%lx is mapped as large", virt);
+    if (table_ptr[pdptidx] & VMM_HUGE_PAGE_SIZE)
+        KPANIC("vmm_unmap_huge: mapping for 0x%lx is mapped as huge", virt);
+    #endif
+
+    table_ptr[ptidx] = 0;
+}
+
 void vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
     const uint16_t pml4idx = VMM_PML4_IDX(virt);
     const uint16_t pdptidx = VMM_PDPT_IDX(virt);
@@ -123,6 +166,40 @@ void vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags)
     table_ptr[pdidx] = phys | (flags | VMM_PD_LARGE_FLAGS);
 }
 
+void vmm_unmap_large(uint64_t *pml4, uint64_t virt) {
+    const uint16_t pml4idx = VMM_PML4_IDX(virt);
+    const uint16_t pdptidx = VMM_PDPT_IDX(virt);
+    const uint16_t pdidx   = VMM_PD_IDX(virt);
+    uint64_t *table_ptr;
+
+    #ifdef PRISTINE_DEBUG
+    if (!is_aligned(virt, VMM_LARGE_PAGE_SIZE)) {
+        KPANIC("vmm_unmap_large: unaligned virtual address 0x%lx", virt);
+    }
+    #endif
+
+    if (pml4[pml4idx] == 0) {
+        KPANIC("vmm_unmap_large: PDPT table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+    }
+
+    if (table_ptr[pdptidx] == 0) {
+        KPANIC("vmm_unmap_large: PD table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(table_ptr[pdptidx] & VMM_PTE_ADDR_MASK);
+    }
+
+    #ifdef PRISTINE_DEBUG
+    if (table_ptr[pdidx] == 0)
+        KPANIC("vmm_unmap_large: mapping for 0x%lx doesn't exist", virt);
+    if (!(table_ptr[pdptidx] & VMM_PD_LARGE_FLAGS))
+        KPANIC("vmm_unmap_huge: mapping for 0x%lx is not mapped as huge", virt);
+    #endif
+
+    table_ptr[pdidx] = 0;
+}
+
 void vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
     const uint16_t pml4idx = VMM_PML4_IDX(virt);
     const uint16_t pdptidx = VMM_PDPT_IDX(virt);
@@ -157,6 +234,33 @@ void vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) 
     #endif
 
     table_ptr[pdptidx] = phys | (flags | VMM_PDPT_HUGE_FLAGS);
+}
+
+void vmm_unmap_huge(uint64_t *pml4, uint64_t virt) {
+    const uint16_t pml4idx = VMM_PML4_IDX(virt);
+    const uint16_t pdptidx = VMM_PDPT_IDX(virt);
+    uint64_t *table_ptr;
+
+    #ifdef PRISTINE_DEBUG
+    if (!is_aligned(virt, VMM_HUGE_PAGE_SIZE)) {
+        KPANIC("vmm_unmap_huge: unaligned virtual address 0x%lx", virt);
+    }
+    #endif
+
+    if (pml4[pml4idx] == 0) {
+        KPANIC("vmm_unmap_huge: PDPT table doesn't exist for virt 0x%lx\n", virt);
+    } else {
+        table_ptr = phys_to_virt(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+    }
+
+    #ifdef PRISTINE_DEBUG
+    if (table_ptr[pdptidx] == 0)
+        KPANIC("vmm_unmap_huge: mapping for 0x%lx doesn't exist", virt);
+    if (!(table_ptr[pdptidx] & VMM_PDPT_HUGE_FLAGS))
+        KPANIC("vmm_unmap_huge: mapping for 0x%lx is not mapped as huge", virt);
+    #endif
+
+    table_ptr[pdptidx] = 0;
 }
 
 void *vmm_alloc(void) {

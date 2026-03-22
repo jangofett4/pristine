@@ -38,9 +38,15 @@
 extern uint64_t *__vmm_pml4;
 
 void  vmm_init(void);
+
 void  vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags);
+void  vmm_unmap(uint64_t *pml4, uint64_t virt);
+
 void  vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags);
+void  vmm_unmap_large(uint64_t *pml4, uint64_t virt);
+
 void  vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags);
+void  vmm_unmap_huge(uint64_t *pml4, uint64_t virt);
 
 void *vmm_alloc(void);
 void  vmm_free(void* memory);
