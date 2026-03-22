@@ -235,7 +235,7 @@ void kmain(uint64_t bootinfo_addr) {
     printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
     printf_("TSS.IST1 %p\n", __kernel_ist1_start);
 
-    gdt_set_tss_entry(__global_gdt, 3, (void*)virt_to_phys(__global_tss), 0x89, 0, sizeof(TSSEntry) - 1);
+    gdt_set_tss_entry(__global_gdt, 3, (void*)__global_tss, 0x89, 0, sizeof(TSSEntry) - 1);
     gdt_load_gdtr(__global_gdt, 5);
     gdt_reload_cs(0x08);
     gdt_reload_segments(0x10);

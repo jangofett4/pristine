@@ -28,19 +28,19 @@ SECTIONS
         . = ALIGN(4096);
         __kernel_ist1_guard = .;
         . += 4096;
-        __kernel_ist1_start = . + 0x1000 - 8;
+        __kernel_ist1_start = . + 0x1000;
         . += 0x1000;
 
         . = ALIGN(4096);
         __kernel_rsp0_guard = .;
         . += 4096;
-        __kernel_rsp0_start = . + 0x1000 - 8;
+        __kernel_rsp0_start = . + 0x1000;
         . += 0x1000;
 
         . = ALIGN(4096);
         __kernel_stack_guard = .;
         . += 4096;
-        __kernel_stack_start = . + 0x4000 - 8;
+        __kernel_stack_start = . + 0x4000;
         . += 0x4000;
         *(.bss*) 
     }
