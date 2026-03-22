@@ -27,10 +27,10 @@ void vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
 
     #ifdef PRISTINE_DEBUG
     if (!is_aligned(phys, VMM_DEFAULT_PAGE_SIZE)) {
-        KPANIC("vmm_map: unaligned physical address 0x%llx", phys);
+        KPANIC("vmm_map: unaligned physical address 0x%lx", phys);
     }
     if (!is_aligned(virt, VMM_DEFAULT_PAGE_SIZE)) {
-        KPANIC("vmm_map: unaligned virtual address 0x%llx", virt);
+        KPANIC("vmm_map: unaligned virtual address 0x%lx", virt);
     }
     #endif
     
@@ -67,7 +67,7 @@ void vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
 
     #ifdef PRISTINE_DEBUG
     if (table_ptr[ptidx] != 0)
-        KPANIC("vmm_map: mapping already exists at virt 0x%llx", virt);
+        KPANIC("vmm_map: mapping already exists at virt 0x%lx", virt);
     #endif
 
     table_ptr[ptidx] = phys | flags;
@@ -82,10 +82,10 @@ void vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags)
 
     #ifdef PRISTINE_DEBUG
     if (!is_aligned(phys, VMM_LARGE_PAGE_SIZE)) {
-        KPANIC("vmm_map_large: unaligned physical address 0x%llx", phys);
+        KPANIC("vmm_map_large: unaligned physical address 0x%lx", phys);
     }
     if (!is_aligned(virt, VMM_LARGE_PAGE_SIZE)) {
-        KPANIC("vmm_map_large: unaligned virtual address 0x%llx", virt);
+        KPANIC("vmm_map_large: unaligned virtual address 0x%lx", virt);
     }
     #endif
     
@@ -110,14 +110,14 @@ void vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags)
     } else {
         #ifdef PRISTINE_DEBUG
         if (table_ptr[pdptidx] & VMM_PD_LARGE_FLAGS)  // PS bit set = huge/large page, not a table
-            KPANIC("vmm_map: tried to map through existing huge page at virt 0x%llx", virt);
+            KPANIC("vmm_map: tried to map through existing huge page at virt 0x%lx", virt);
         #endif
         table_ptr = phys_to_virt(table_ptr[pdptidx] & VMM_PTE_ADDR_MASK);
     }
 
     #ifdef PRISTINE_DEBUG
     if (table_ptr[pdidx] != 0)
-        KPANIC("vmm_map_large: mapping already exists at virt 0x%llx", virt);
+        KPANIC("vmm_map_large: mapping already exists at virt 0x%lx", virt);
     #endif
 
     table_ptr[pdidx] = phys | (flags | VMM_PD_LARGE_FLAGS);
@@ -131,10 +131,10 @@ void vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) 
 
     #ifdef PRISTINE_DEBUG
     if (!is_aligned(phys, VMM_HUGE_PAGE_SIZE)) {
-        KPANIC("vmm_map_huge: unaligned physical address 0x%llx", phys);
+        KPANIC("vmm_map_huge: unaligned physical address 0x%lx", phys);
     }
     if (!is_aligned(virt, VMM_HUGE_PAGE_SIZE)) {
-        KPANIC("vmm_map_huge: unaligned virtual address 0x%llx", virt);
+        KPANIC("vmm_map_huge: unaligned virtual address 0x%lx", virt);
     }
     #endif
     
@@ -153,7 +153,7 @@ void vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) 
 
     #ifdef PRISTINE_DEBUG
     if (table_ptr[pdptidx] != 0)
-        KPANIC("vmm_map_huge: mapping already exists at virt 0x%llx", virt);
+        KPANIC("vmm_map_huge: mapping already exists at virt 0x%lx", virt);
     #endif
 
     table_ptr[pdptidx] = phys | (flags | VMM_PDPT_HUGE_FLAGS);

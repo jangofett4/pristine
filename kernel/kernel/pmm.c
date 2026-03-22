@@ -42,12 +42,12 @@ uint64_t pmm_alloc(void) {
 void pmm_free(uint64_t page) {
     #ifdef PRISTINE_DEBUG
     if (page & (VMM_DEFAULT_PAGE_SIZE - 1))
-        KPANIC("pmm_free: unaligned address %llx", page);
+        KPANIC("pmm_free: unaligned address %lx", page);
     #endif
     uint32_t idx = page / VMM_DEFAULT_PAGE_SIZE;
     #ifdef PRISTINE_DEBUG
     if (!bitmap_test(__pmm_bitmap, idx))
-        KPANIC("pmm_free: double free at %llx", page);
+        KPANIC("pmm_free: double free at %lx", page);
     #endif
     
     bitmap_clear(__pmm_bitmap, idx);
