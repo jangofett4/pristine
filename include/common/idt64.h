@@ -72,6 +72,9 @@ typedef void (*IDT64ISRDispatch)(IDT64ISRFrame *frame);
 #define IDT64_IDT_ATTR_INTERRUPT  0x8E
 #define IDT64_IDT_ATTR_TRAP       0x8F
 
+static IDT64Entry __global_idt[IDT64_SIZE];
+
+void idt64_init(void);
 void idt64_load_idtr(IDT64Ptr *idt_ptr);
 void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist);
 void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist);

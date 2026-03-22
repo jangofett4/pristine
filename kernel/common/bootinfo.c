@@ -5,12 +5,17 @@
  */
 
 #include <kernel/pmm.h>
-#include <stddef.h> 
-#include <stdint.h>
- 
 #include <common/bootinfo.h>
 #include <common/memmap.h>
 #include <common/vesa.h>
+
+#include <stddef.h> 
+#include <stdint.h>
+
+void bootinfo_init(BootInfo *bootinfo, uint64_t bootinfo_addr) {
+    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + PMM_HHDM_START);
+    *bootinfo = bootinfo_copy(rawbootinfo);
+}
 
 BootInfo bootinfo_copy(const RawBootInfo *ptr) {
     BootInfo bootinfo;

@@ -8,12 +8,65 @@
 #include <common/idt64.h>
 #include <common/pic.h>
 #include <common/io.h>
+#include <common/string.h>
 #include <stdint.h>
 
 #include <lib64/printf/printf.h>
 
 // This is a bit big
-static IDT64ISRDispatch dispatch_table[48] = {0};
+static IDT64ISRDispatch dispatch_table[IDT64_SIZE] = {0};
+
+void idt64_init(void) {
+    memset(__global_idt, 0, sizeof(IDT64Entry) * IDT64_SIZE);
+    idt64_set_entry_trap(__global_idt,  0, (uint64_t)idt64_isr_0,  1);
+    idt64_set_entry_trap(__global_idt,  1, (uint64_t)idt64_isr_1,  1);
+    idt64_set_entry_int (__global_idt,  2, (uint64_t)idt64_isr_2,  0);
+    idt64_set_entry_trap(__global_idt,  3, (uint64_t)idt64_isr_3,  1);
+    idt64_set_entry_trap(__global_idt,  4, (uint64_t)idt64_isr_4,  1);
+    idt64_set_entry_trap(__global_idt,  5, (uint64_t)idt64_isr_5,  1);
+    idt64_set_entry_trap(__global_idt,  6, (uint64_t)idt64_isr_6,  1);
+    idt64_set_entry_trap(__global_idt,  7, (uint64_t)idt64_isr_7,  1);
+    idt64_set_entry_trap(__global_idt,  8, (uint64_t)idt64_isr_8,  1);
+    idt64_set_entry_trap(__global_idt,  9, (uint64_t)idt64_isr_9,  1);
+    idt64_set_entry_trap(__global_idt, 10, (uint64_t)idt64_isr_10, 1);
+    idt64_set_entry_trap(__global_idt, 11, (uint64_t)idt64_isr_11, 1);
+    idt64_set_entry_trap(__global_idt, 12, (uint64_t)idt64_isr_12, 1);
+    idt64_set_entry_trap(__global_idt, 13, (uint64_t)idt64_isr_13, 1);
+    idt64_set_entry_trap(__global_idt, 14, (uint64_t)idt64_isr_14, 1);
+    idt64_set_entry_int (__global_idt, 15, (uint64_t)idt64_isr_15, 0);
+    idt64_set_entry_trap(__global_idt, 16, (uint64_t)idt64_isr_16, 1);
+    idt64_set_entry_trap(__global_idt, 17, (uint64_t)idt64_isr_17, 1);
+    idt64_set_entry_trap(__global_idt, 18, (uint64_t)idt64_isr_18, 1);
+    idt64_set_entry_trap(__global_idt, 19, (uint64_t)idt64_isr_19, 1);
+    idt64_set_entry_trap(__global_idt, 20, (uint64_t)idt64_isr_20, 1);
+    idt64_set_entry_trap(__global_idt, 21, (uint64_t)idt64_isr_21, 1);
+    idt64_set_entry_int (__global_idt, 22, (uint64_t)idt64_isr_22, 0);
+    idt64_set_entry_int (__global_idt, 23, (uint64_t)idt64_isr_23, 0);
+    idt64_set_entry_int (__global_idt, 24, (uint64_t)idt64_isr_24, 0);
+    idt64_set_entry_int (__global_idt, 25, (uint64_t)idt64_isr_25, 0);
+    idt64_set_entry_int (__global_idt, 26, (uint64_t)idt64_isr_26, 0);
+    idt64_set_entry_int (__global_idt, 27, (uint64_t)idt64_isr_27, 0);
+    idt64_set_entry_int (__global_idt, 28, (uint64_t)idt64_isr_28, 0);
+    idt64_set_entry_int (__global_idt, 29, (uint64_t)idt64_isr_29, 0);
+    idt64_set_entry_int (__global_idt, 30, (uint64_t)idt64_isr_30, 0);
+    idt64_set_entry_int (__global_idt, 31, (uint64_t)idt64_isr_31, 0);
+    idt64_set_entry_int (__global_idt, 32, (uint64_t)pic_isr_32,   0);
+    idt64_set_entry_int (__global_idt, 33, (uint64_t)pic_isr_33,   0);
+    idt64_set_entry_int (__global_idt, 34, (uint64_t)pic_isr_34,   0);
+    idt64_set_entry_int (__global_idt, 35, (uint64_t)pic_isr_35,   0);
+    idt64_set_entry_int (__global_idt, 36, (uint64_t)pic_isr_36,   0);
+    idt64_set_entry_int (__global_idt, 37, (uint64_t)pic_isr_37,   0);
+    idt64_set_entry_int (__global_idt, 38, (uint64_t)pic_isr_38,   0);
+    idt64_set_entry_int (__global_idt, 39, (uint64_t)pic_isr_39,   0);
+    idt64_set_entry_int (__global_idt, 40, (uint64_t)pic_isr_40,   0);
+    idt64_set_entry_int (__global_idt, 41, (uint64_t)pic_isr_41,   0);
+    idt64_set_entry_int (__global_idt, 42, (uint64_t)pic_isr_42,   0);
+    idt64_set_entry_int (__global_idt, 43, (uint64_t)pic_isr_43,   0);
+    idt64_set_entry_int (__global_idt, 44, (uint64_t)pic_isr_44,   0);
+    idt64_set_entry_int (__global_idt, 45, (uint64_t)pic_isr_45,   0);
+    idt64_set_entry_int (__global_idt, 46, (uint64_t)pic_isr_46,   0);
+    idt64_set_entry_int (__global_idt, 47, (uint64_t)pic_isr_47,   0);
+}
 
 void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist) {
     idt_table[index].offset1 = handler & 0xFFFF;

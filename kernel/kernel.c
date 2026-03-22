@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "common/memmap.h"
 #include <stdint.h>
 
 #include <pristine.h>
@@ -42,63 +43,12 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC_SILENT();
     }
 
-    RawBootInfo *rawbootinfo = (RawBootInfo*)(bootinfo_addr + PMM_HHDM_START);
-    __global_bootinfo = bootinfo_copy(rawbootinfo);
-    rawbootinfo = 0;
+    bootinfo_init(&__global_bootinfo, bootinfo_addr);
 
     // ======== IDT64 ========
     idt64_disable_interrupts();
 
-    __global_isr_table[0] = (IDT64ISRHandler)IDT64_ISR_T(0, 1);
-    __global_isr_table[1] = (IDT64ISRHandler)IDT64_ISR_T(1, 1);
-    __global_isr_table[2] = (IDT64ISRHandler)IDT64_ISR_I(2, 0);
-    __global_isr_table[3] = (IDT64ISRHandler)IDT64_ISR_T(3, 1);
-    __global_isr_table[4] = (IDT64ISRHandler)IDT64_ISR_T(4, 1);
-    __global_isr_table[5] = (IDT64ISRHandler)IDT64_ISR_T(5, 1);
-    __global_isr_table[6] = (IDT64ISRHandler)IDT64_ISR_T(6, 1);
-    __global_isr_table[7] = (IDT64ISRHandler)IDT64_ISR_T(7, 1);
-    __global_isr_table[8] = (IDT64ISRHandler)IDT64_ISR_T(8, 1);
-    __global_isr_table[9] = (IDT64ISRHandler)IDT64_ISR_T(9, 1);
-    __global_isr_table[10] = (IDT64ISRHandler)IDT64_ISR_T(10, 1);
-    __global_isr_table[11] = (IDT64ISRHandler)IDT64_ISR_T(11, 1);
-    __global_isr_table[12] = (IDT64ISRHandler)IDT64_ISR_T(12, 1);
-    __global_isr_table[13] = (IDT64ISRHandler)IDT64_ISR_T(13, 1);
-    __global_isr_table[14] = (IDT64ISRHandler)IDT64_ISR_T(14, 1);
-    __global_isr_table[15] = (IDT64ISRHandler)IDT64_ISR_I(15, 0);
-    __global_isr_table[16] = (IDT64ISRHandler)IDT64_ISR_T(16, 1);
-    __global_isr_table[17] = (IDT64ISRHandler)IDT64_ISR_T(17, 1);
-    __global_isr_table[18] = (IDT64ISRHandler)IDT64_ISR_T(18, 1);
-    __global_isr_table[19] = (IDT64ISRHandler)IDT64_ISR_T(19, 1);
-    __global_isr_table[20] = (IDT64ISRHandler)IDT64_ISR_T(20, 1);
-    __global_isr_table[21] = (IDT64ISRHandler)IDT64_ISR_T(21, 1);
-    __global_isr_table[22] = (IDT64ISRHandler)IDT64_ISR_I(22, 0);
-    __global_isr_table[23] = (IDT64ISRHandler)IDT64_ISR_I(23, 0);
-    __global_isr_table[24] = (IDT64ISRHandler)IDT64_ISR_I(24, 0);
-    __global_isr_table[25] = (IDT64ISRHandler)IDT64_ISR_I(25, 0);
-    __global_isr_table[26] = (IDT64ISRHandler)IDT64_ISR_I(26, 0);
-    __global_isr_table[27] = (IDT64ISRHandler)IDT64_ISR_I(27, 0);
-    __global_isr_table[28] = (IDT64ISRHandler)IDT64_ISR_I(28, 0);
-    __global_isr_table[29] = (IDT64ISRHandler)IDT64_ISR_I(29, 0);
-    __global_isr_table[30] = (IDT64ISRHandler)IDT64_ISR_I(30, 0);
-    __global_isr_table[31] = (IDT64ISRHandler)IDT64_ISR_I(31, 0);
-    __global_isr_table[32] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_32, .ist = 0 };
-    __global_isr_table[33] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_33, .ist = 0 };
-    __global_isr_table[34] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_34, .ist = 0 };
-    __global_isr_table[35] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_35, .ist = 0 };
-    __global_isr_table[36] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_36, .ist = 0 };
-    __global_isr_table[37] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_37, .ist = 0 };
-    __global_isr_table[38] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_38, .ist = 0 };
-    __global_isr_table[39] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_39, .ist = 0 };
-    __global_isr_table[40] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_40, .ist = 0 };
-    __global_isr_table[41] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_41, .ist = 0 };
-    __global_isr_table[42] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_42, .ist = 0 };
-    __global_isr_table[43] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_43, .ist = 0 };
-    __global_isr_table[44] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_44, .ist = 0 };
-    __global_isr_table[45] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_45, .ist = 0 };
-    __global_isr_table[46] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_46, .ist = 0 };
-    __global_isr_table[47] = (IDT64ISRHandler){.type=IDT64_ISR_INTERRUPT, .handler = pic_isr_47, .ist = 0 };
-
-    idt64_set_entries(__global_idt, __global_isr_table, IDT64_SIZE);
+    idt64_init();
     
     IDT64Ptr idt_ptr;
     idt_ptr.limit = (IDT64_SIZE * sizeof(IDT64Entry)) - 1;
@@ -112,7 +62,7 @@ void kmain(uint64_t bootinfo_addr) {
 
     idt64_enable_interrupts();
 
-    pic_unmask_irq(1);
+    // pic_unmask_irq(1);
 
     // ======== Globals ========
 
@@ -140,54 +90,7 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC("kernel: memory map exceeds maximum items of %i, possibly malformed memory", MEMMAP_MAX_ITEMS);
     }
 
-    __kernel_system_memory = 0;
-    // Mark the regions we got from memory map
-    for (size_t i = 0; i < __global_bootinfo.memory_map_count; i++) {
-        MemmapEntry *entry = __global_bootinfo.memory_map + i;
-        uint64_t entry_base = (uint64_t)entry->BaseAddrHigh << 32 | (uint64_t)entry->BaseAddrLow;
-        uint64_t entry_size = (uint64_t)entry->LengthHigh << 32 | (uint64_t)entry->LengthLow;
-
-        uint64_t base = ALIGN_UP(entry_base, VMM_DEFAULT_PAGE_SIZE);
-        uint64_t end  = ALIGN_UP(entry_base + entry_size, VMM_DEFAULT_PAGE_SIZE);
-
-        printf_(" 0x%016lx:0x%016lx (%lu KiB), Type: ", base, end, entry_size / 1024);
-        if (entry->Type == 1) {
-            __kernel_system_memory += entry_size;
-            for (uint64_t m = base; m < end; m += VMM_DEFAULT_PAGE_SIZE) {
-                bitmap_clear(__global_memory_bitmap, m / VMM_DEFAULT_PAGE_SIZE);
-            }
-        } else {
-            for (uint64_t m = base; m < end; m += VMM_DEFAULT_PAGE_SIZE) {
-                bitmap_set(__global_memory_bitmap, m / VMM_DEFAULT_PAGE_SIZE);
-            }
-        }
-        switch (entry->Type) {
-            case 1:
-                printf_("Usable");
-                break;
-            case 2:
-                printf_("Reserved");
-                break;
-            case 3:
-                printf_("ACPI");
-                break;
-            case 4:
-                printf_("NVS");
-                break;
-            case 5:
-                printf_("Unusable");
-                break;
-            case 6:
-                printf_("Disabled");
-                break;
-            default:
-                printf_("Unknown");
-                break;
-        }
-        printf_("\n");
-    }
-
-    // ======== Memory Map (continued) ========
+    __kernel_system_memory = memmap_bitmap_init(__global_bootinfo.memory_map, __global_bootinfo.memory_map_count, __global_memory_bitmap);
 
     uint64_t memory_bitmap_start_phys = ((uint64_t)__global_bootinfo.memory_bitmap) - PMM_HHDM_START;
     uint64_t memory_bitmap_end_phys   = memory_bitmap_start_phys + __global_bootinfo.memory_bitmap_size;
