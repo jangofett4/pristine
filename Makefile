@@ -4,13 +4,13 @@ ASMFLAGS = -f elf32 -g
 C        = clang
 COPT	 = -Werror=return-type -Wall -std=c23
 CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
-           -fno-stack-protector \
+           -fno-stack-protector -mno-red-zone \
            -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
-CFLAGS64 = -ffreestanding -nostdlib -O0 -c -m64 \
-           -fno-stack-protector \
+CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
+           -fno-stack-protector -mno-red-zone \
            -Iboot/stage2 -Iinclude -Ilib \
            -MMD -MP -fno-pic -fno-pie -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT) -mcmodel=kernel
