@@ -5,13 +5,13 @@
 
 #pragma once
 
+#include <__stdarg_va_list.h>
 #include <lib64/printf/printf.h>
+#include <stdarg.h>
 
-#define KPANIC_SILENT() do { \
-    __asm__ volatile("cli; hlt"); \
-} while (0)
+#define KPANIC_SILENT() kpanic_silent();
 
-#define KPANIC(fmt, ...) do { \
-    printf_("KERNEL PANIC at %s:%d in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-    __asm__ volatile("cli; hlt"); \
-} while(0)
+#define KPANIC(fmt, ...) kpanic("KERNEL PANIC at %s:%d in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+__attribute__((noreturn, used)) void kpanic(const char* fmt, ...);
+__attribute__((noreturn, used)) void kpanic_silent(void);
