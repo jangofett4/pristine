@@ -6,7 +6,19 @@ SECTIONS
         bin/boot/stage1/stage1.o(.text)
         *(.text*)
         *(.data*)
-        . = 0x7C00 + 510;
+        *(.rodata*)
+    }
+
+    /DISCARD/ : {
+        *(.debug*)
+        *(.stabs*)
+        *(.comment*)
+        *(.symtab)
+        *(.strtab)
+    }
+
+    . = 0x7C00 + 510;
+    .sig : {
         SHORT(0xAA55);
     }
 }

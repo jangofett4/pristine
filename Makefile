@@ -1,7 +1,16 @@
 ASM      = nasm
 ASMFLAGS = -f elf32 -g
 
-C        = clang
+CGUEST32       = ${CROSSGCC32}gcc
+CGUEST64       = ${CROSSGCC64}gcc
+LDGUEST32      = ${CROSSGCC32}ld
+LDGUEST64      = ${CROSSGCC64}ld
+OBJCOPYGUEST32 = ${CROSSBINUTILS32}objcopy
+OBJCOPYGUEST64 = ${CROSSBINUTILS64}objcopy
+
+LDHOST   = ld.lld
+CHOST    = gcc
+
 COPT	 = -Werror=return-type -Wall -std=c23
 CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
            -fno-stack-protector -mno-red-zone \
@@ -15,7 +24,6 @@ CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
            -MMD -MP -fno-pic -fno-pie -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT) -mcmodel=kernel
 
-LD       = ld.lld
 
 QEMU      = qemu-system-x86_64
 QEMUFLAGS = -m 256 -serial stdio -machine pc
@@ -66,7 +74,7 @@ else
 endif
 
 # Auto-generated header dependencies
--include $(shell find bin -name "*.d")
+-include $(shell find bin -name "*.d" 2>/dev/null)
 
 .PHONY: all clean qemu debug
 
@@ -78,45 +86,45 @@ bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
 	$(ASM) $(ASMFLAGS) boot/stage1/stage1.asm -o $@
 
 bin/boot/stage1/stage1.elf: $(S1_ASMOBJS)
-	$(LD) -T boot/stage1/linker_stage1.ld $^ -o $@
+	$(LDGUEST32) -T boot/stage1/linker_stage1.ld $^ -o $@
 
 bin/boot/stage1/stage1.bin: bin/boot/stage1/stage1.elf
 	@mkdir -p bin
-	objcopy -O binary $< $@
+	$(OBJCOPYGUEST32) -O binary $< $@
 
 # ---- Stage 2 ----
 # Stage2 gets its own include path for boot/ headers
 bin/boot/stage2/%.o: boot/stage2/%.c
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS32) -Iboot $< -o $@
+	$(CGUEST32) $(CFLAGS32) -Iboot $< -o $@
 
 bin/boot/stage2/%.o: boot/stage2/%.asm
 	@mkdir -p $(dir $@)
 	$(ASM) -f elf32 $< -o $@
 
 bin/boot/stage2/stage2.elf: $(S2_OBJS) $(S2_ASMOBJS) 
-	$(LD) -T boot/stage2/linker_stage2.ld $^ $(COMPILER_RT32_PATH) -o $@ 
+	$(LDGUEST32) -T boot/stage2/linker_stage2.ld $^ $(COMPILER_RT32_PATH) -o $@ 
 
 bin/boot/stage2/stage2.bin: bin/boot/stage2/stage2.elf
-	objcopy -O binary $< $@
+	$(OBJCOPYGUEST32) -O binary $< $@
 
 # ---- Libs ----
 bin/lib/lib32/%.o: $(LIB32_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS32) $< -o $@
+	$(CGUEST32) $(CFLAGS32) $< -o $@
 
 bin/lib/lib64/%.o: $(LIB64_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS64) $< -o $@
+	$(CGUEST64) $(CFLAGS64) $< -o $@
 
 # ---- Kernel ----
 bin/kernel/%.o: kernel/%.c
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS64) $< -o $@
+	$(CGUEST64) $(CFLAGS64) $< -o $@
 
 bin/drivers/%.o: drivers/%.c
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS64) $< -o $@
+	$(CGUEST64) $(CFLAGS64) $< -o $@
 
 bin/kernel/%.o: kernel/%.asm
 	@mkdir -p $(dir $@)
@@ -127,21 +135,20 @@ bin/drivers/%.o: drivers/%.asm
 	$(ASM) -f elf64 -g $< -o $@
 
 bin/kernel.elf: $(K_OBJS) $(K_ASMOBJS)
-	$(LD) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@
-
+	$(LDGUEST64) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@
 
 # ---- BSFS ----
 bin/mkfs.bsfs: $(BSFS_MKFS_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS_BSFS) $^ -o $@
+	$(CHOST) $(CFLAGS_BSFS) $^ -o $@
 
 bin/bsfs-populate: $(BSFS_POPULATE_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS_BSFS) $^ -o $@
+	$(CHOST) $(CFLAGS_BSFS) $^ -o $@
 
 bin/bsfs-extract: $(BSFS_EXTRACT_SRCS)
 	@mkdir -p $(dir $@)
-	$(C) $(CFLAGS_BSFS) $^ -o $@
+	$(CHOST) $(CFLAGS_BSFS) $^ -o $@
 
 # ---- Final image ----
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract

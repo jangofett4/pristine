@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <__stdarg_va_list.h>
+#include <stdarg.h>
 #include <lib64/printf/printf.h>
 #include <stdarg.h>
 
