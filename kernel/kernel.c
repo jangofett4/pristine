@@ -33,7 +33,6 @@
 #include <drivers/video/video.h>
 
 #include <lib64/printf/printf.h>
-#include <stdio.h>
 
 void kmain(uint64_t bootinfo_addr) {
     // verify we're running where we think we are    
