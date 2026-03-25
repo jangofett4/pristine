@@ -8,19 +8,23 @@ LDGUEST64      = ${CROSSGCC64}ld
 OBJCOPYGUEST32 = ${CROSSBINUTILS32}objcopy
 OBJCOPYGUEST64 = ${CROSSBINUTILS64}objcopy
 
-LDHOST   = ld.lld
+LDHOST   = ld
 CHOST    = gcc
 
+LDFLAGS  =     -nostdlib -nostartfiles -nodefaultlibs -lgcc
+
 COPT	 = -Werror=return-type -Wall -std=c23
-CFLAGS32 = -ffreestanding -nostdlib -c -m32 \
+CFLAGS32 = -ffreestanding -c -m32 \
            -fno-stack-protector -mno-red-zone \
-           -Iinclude -Ilib \
+           -Iinclude -Ilib -fno-omit-frame-pointer \
+		   -fno-asynchronous-unwind-tables \
            -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
-CFLAGS64 = -ffreestanding -nostdlib -c -m64 \
+CFLAGS64 = -ffreestanding -c -m64 \
            -fno-stack-protector -mno-red-zone \
-           -Iboot/stage2 -Iinclude -Ilib \
+           -Iboot/stage2 -Iinclude -Ilib -fno-omit-frame-pointer \
+		   -fno-asynchronous-unwind-tables \
            -MMD -MP -fno-pic -fno-pie -mno-mmx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT) -mcmodel=kernel
 
@@ -34,9 +38,6 @@ LIB32_OBJS = $(patsubst %.c, bin/%.o, $(LIB32_SRCS))
 
 LIB64_SRCS = $(shell find lib/lib64 -name "*.c")
 LIB64_OBJS = $(patsubst %.c, bin/%.o, $(LIB64_SRCS))
-
-COMPILER_RT32_PATH := $(shell clang -m32 -print-resource-dir)/lib/linux/libclang_rt.builtins-i386.a
-COMPILER_RT64_PATH := $(shell clang -m64 -print-resource-dir)/lib/linux/libclang_rt.builtins-x86_64.a
 
 # Kernel C sources (kernel/, drivers/, lib/)
 K_SRCS     = $(shell find kernel drivers -name "*.c")
@@ -86,7 +87,7 @@ bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
 	$(ASM) $(ASMFLAGS) boot/stage1/stage1.asm -o $@
 
 bin/boot/stage1/stage1.elf: $(S1_ASMOBJS)
-	$(LDGUEST32) -T boot/stage1/linker_stage1.ld $^ -o $@
+	$(CGUEST32) -T boot/stage1/linker_stage1.ld $^ $(LDFLAGS) -o $@
 
 bin/boot/stage1/stage1.bin: bin/boot/stage1/stage1.elf
 	@mkdir -p bin
@@ -103,7 +104,7 @@ bin/boot/stage2/%.o: boot/stage2/%.asm
 	$(ASM) -f elf32 $< -o $@
 
 bin/boot/stage2/stage2.elf: $(S2_OBJS) $(S2_ASMOBJS) 
-	$(LDGUEST32) -T boot/stage2/linker_stage2.ld $^ $(COMPILER_RT32_PATH) -o $@ 
+	$(CGUEST32) -T boot/stage2/linker_stage2.ld $^ $(LDFLAGS) -o $@ 
 
 bin/boot/stage2/stage2.bin: bin/boot/stage2/stage2.elf
 	$(OBJCOPYGUEST32) -O binary $< $@
@@ -135,7 +136,7 @@ bin/drivers/%.o: drivers/%.asm
 	$(ASM) -f elf64 -g $< -o $@
 
 bin/kernel.elf: $(K_OBJS) $(K_ASMOBJS)
-	$(LDGUEST64) -T kernel/linker_kernel.ld $^ $(COMPILER_RT64_PATH) -o $@
+	$(CGUEST64) -T kernel/linker_kernel.ld $^ $(LDFLAGS) -o $@
 
 # ---- BSFS ----
 bin/mkfs.bsfs: $(BSFS_MKFS_SRCS)
