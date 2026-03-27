@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <lib64/printf/printf.h>
 #include <kernel/vmm.h>
 #include <common/common.h>
 #include <bitmap.h>

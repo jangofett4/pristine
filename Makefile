@@ -43,7 +43,7 @@ LIB64_OBJS = $(patsubst %.c, bin/%.o, $(LIB64_SRCS))
 K_SRCS     = $(shell find kernel drivers -name "*.c")
 K_ASMSRCS  = $(shell find kernel drivers -name "*.asm")
 
-K_OBJS     = $(patsubst %.c, bin/%.o, $(K_SRCS)) bin/lib/lib64/printf/printf.o
+K_OBJS     = $(patsubst %.c, bin/%.o, $(K_SRCS))
 K_ASMOBJS  = $(patsubst %.asm, bin/%.o, $(K_ASMSRCS))
 
 K_BUILTINS = $(LIBGCC64_PATH)

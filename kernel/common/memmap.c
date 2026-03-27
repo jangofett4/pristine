@@ -5,6 +5,7 @@
  */
 
 #include <common/memmap.h>
+#include <printf.h>
 
 uint64_t memmap_bitmap_init(MemmapEntry *entries, size_t count, uint8_t *bitmap) {
     uint32_t total_usable_memory = 0;

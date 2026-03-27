@@ -6,8 +6,6 @@
 #pragma once
 
 #include <stdarg.h>
-#include <lib64/printf/printf.h>
-#include <stdarg.h>
 
 #define KPANIC_SILENT() kpanic_silent();
 

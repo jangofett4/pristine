@@ -5,6 +5,7 @@
  */
 
 #include <kernel/panic.h>
+#include <printf.h>
 
 __attribute__((noreturn, used)) void kpanic(const char *fmt, ...) {
     va_list args;

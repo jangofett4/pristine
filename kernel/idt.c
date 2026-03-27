@@ -11,7 +11,7 @@
 #include <common/string.h>
 #include <stdint.h>
 
-#include <lib64/printf/printf.h>
+#include <printf.h>
 
 // This is a bit big
 static IDT64ISRDispatch dispatch_table[IDT64_SIZE] = {0};

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "common/memmap.h"
+#include <common/memmap.h>
 #include <stdint.h>
 
 #include <pristine.h>
@@ -32,7 +32,7 @@
 #include <drivers/storage/ata/atapio.h>
 #include <drivers/video/video.h>
 
-#include <lib64/printf/printf.h>
+#include <printf.h>
 
 void kmain(uint64_t bootinfo_addr) {
     // verify we're running where we think we are    
@@ -75,10 +75,146 @@ void kmain(uint64_t bootinfo_addr) {
     pmm_init(__global_memory_bitmap, __global_bootinfo.memory_bitmap_size);
     bitmap_clear_all(__global_memory_bitmap, __global_bootinfo.memory_bitmap_size);
 
+    printf_("Pointer          %p\n", __global_memory_bitmap);
+    printf_("Null Pointer     %p\n", (void*)0x0);
+    printf_("String Regular   '%s'\n", "Hello, World");
+    printf_("String Padded    '%16s'\n", "Hello, World");
+    printf_("String LPadded   '%-16s'\n", "Hello, World");
+    printf_("String Ignore    '%+ 0-16s'\n", "Hello, World");
+
+    printf_("Char Regular   '%c'\n", 'X');
+    printf_("Char Padded    '%16c'\n", 'X');
+    printf_("Char LPadded   '%-16c'\n", 'X');
+    printf_("Char Ignore    '%+ 0-16c'\n", 'X');
+
+    printf_("Num Regular      %i|\n", 10);
+    printf_("Num Space Padded % 16i|\n", 10);
+    printf_("Num Space Omit   %16i|\n", 10);
+    printf_("Num Zero Padded  %016i|\n", 10);
+    printf_("Num Left Padded  %-16i|\n", 10);
+    printf_("Num LZ Padded    %0-16i|\n", 10);
+
+    printf_("+Num Regular      %+i|\n", 10);
+    printf_("+Num Space Padded %+ 16i|\n", 10);
+    printf_("+Num Space Omit   %+16i|\n", 10);
+    printf_("+Num Zero Padded  %+016i|\n", 10);
+    printf_("+Num Left Padded  %+-16i|\n", 10);
+    printf_("+Num LZ Padded    %+0-16i|\n", 10);
+
+    printf_("NNum Regular      %i|\n", -10);
+    printf_("NNum Space Padded % 16i|\n", -10);
+    printf_("NNum Space Omit   %16i|\n", -10);
+    printf_("NNum Zero Padded  %016i|\n", -10);
+    printf_("NNum Left Padded  %-16i|\n", -10);
+    printf_("NNum LZ Padded    %0-16i|\n", -10);
+
+    printf_("UNum Regular      %lu|\n", 10);
+    printf_("UNum Space Padded % 16lu|\n", 10);
+    printf_("UNum Space Omit   %16lu|\n", 10);
+    printf_("UNum Zero Padded  %016lu|\n", 10);
+    printf_("UNum Left Padded  %-16lu|\n", 10);
+    printf_("UNum LZ Padded    %0-16lu|\n", 10);
+
+    printf_("UHex              %lx|\n", 0xffff);
+    printf_("UHex              %lx|\n", 0xffaa);
+    printf_("UHex              %lx|\n", 0xffaacc);
+    printf_("UHex Upper        %lX|\n", 0xAABB1122);
+    printf_("UHex Space Padded % 16lx|\n", 0xAABB1122);
+    printf_("UHex Space Omit   %16lx|\n", 0xAABB1122);
+    printf_("UHex Zero Padded  %016lx|\n", 0xAABB1122);
+    printf_("UHex Left Padded  %-16lx|\n", 0xAABB1122);
+    printf_("UHex LZ Padded    %0-16lx|\n", 0xAABB1122);
+
+    printf_("UHex Space Upper  % 16lX|\n", 0x123456789ABC);
+    printf_("UHex SpaceU Omit  %16lX|\n", 0x123456789ABC);
+    printf_("UHex ZeroU Padded %016lX|\n", 0x123456789ABC);
+    printf_("UHex LeftU Padded %-16lX|\n", 0x123456789ABC);
+    printf_("UHex LZU Padded   %0-16lX|\n", 0x123456789ABC);
+
+    printf_("UOct              %lo|\n", 0777);
+    printf_("UOct              %lo|\n", 0123);
+    printf_("UOct              %lo|\n", 0171);
+    printf_("UOct Space Padded % 16lo|\n", 012345670);
+    printf_("UOct Space Omit   %16lo|\n", 012345670);
+    printf_("UOct Zero Padded  %016lo|\n", 012345670);
+    printf_("UOct Left Padded  %-16lo|\n", 012345670);
+    printf_("UOct LZ Padded    %0-16lo|\n", 012345670);
+
+    printf_("HNum Regular      %hi|\n", (short)10);
+    printf_("HNum Space Padded % 16hi|\n", (short)10);
+    printf_("HNum Space Omit   %16hi|\n", (short)10);
+    printf_("HNum Zero Padded  %016hi|\n", (short)10);
+    printf_("HNum Left Padded  %-16hi|\n", (short)10);
+    printf_("HNum LZ Padded    %0-16hi|\n", (short)10);
+
+    printf_("HHNum Regular      %hhi|\n", (char)10);
+    printf_("HHNum Space Padded % 16hhi|\n", (char)10);
+    printf_("HHNum Space Omit   %16hhi|\n", (char)10);
+    printf_("HHNum Zero Padded  %016hhi|\n", (char)10);
+    printf_("HHNum Left Padded  %-16hhi|\n", (char)10);
+    printf_("HHNum LZ Padded    %0-16hhi|\n", (char)10);
+
+    // To be fair, there is no signed size_t, but...
+    printf_("ZNum Regular      %zi|\n", (size_t)10);
+    printf_("ZNum Space Padded % 16zi|\n", (size_t)10);
+    printf_("ZNum Space Omit   %16zi|\n", (size_t)10);
+    printf_("ZNum Zero Padded  %016zi|\n", (size_t)10);
+    printf_("ZNum Left Padded  %-16zi|\n", (size_t)10);
+    printf_("ZNum LZ Padded    %0-16zi|\n", (size_t)10);
+
+    printf_("LLNum Regular      %lli|\n", (long long int)10);
+    printf_("LLNum Space Padded % 16lli|\n", (long long int)10);
+    printf_("LLNum Space Omit   %16lli|\n", (long long int)10);
+    printf_("LLNum Zero Padded  %016lli|\n", (long long int)10);
+    printf_("LLNum Left Padded  %-16lli|\n", (long long int)10);
+    printf_("LLNum LZ Padded    %0-16lli|\n", (long long int)10);
+
+    printf_("LLNum Regular      %ji|\n", (intmax_t)10);
+    printf_("LLNum Space Padded % 16ji|\n", (intmax_t)10);
+    printf_("LLNum Space Omit   %16ji|\n", (intmax_t)10);
+    printf_("LLNum Zero Padded  %016ji|\n", (intmax_t)10);
+    printf_("LLNum Left Padded  %-16ji|\n", (intmax_t)10);
+    printf_("LLNum LZ Padded    %0-16ji|\n", (intmax_t)10);
+
+    printf_("HNum Regular      %hu|\n", (unsigned short)10);
+    printf_("HNum Space Padded % 16hu|\n", (unsigned short)10);
+    printf_("HNum Space Omit   %16hu|\n", (unsigned short)10);
+    printf_("HNum Zero Padded  %016hu|\n", (unsigned short)10);
+    printf_("HNum Left Padded  %-16hu|\n", (unsigned short)10);
+    printf_("HNum LZ Padded    %0-16hu|\n", (unsigned short)10);
+
+    printf_("HHNum Regular      %hhu|\n", (unsigned char)10);
+    printf_("HHNum Space Padded % 16hhu|\n", (unsigned char)10);
+    printf_("HHNum Space Omit   %16hhu|\n", (unsigned char)10);
+    printf_("HHNum Zero Padded  %016hhu|\n", (unsigned char)10);
+    printf_("HHNum Left Padded  %-16hhu|\n", (unsigned char)10);
+    printf_("HHNum LZ Padded    %0-16hhu|\n", (unsigned char)10);
+
+    printf_("ZNum Regular      %zu|\n", (size_t)10);
+    printf_("ZNum Space Padded % 16zu|\n", (size_t)10);
+    printf_("ZNum Space Omit   %16zu|\n", (size_t)10);
+    printf_("ZNum Zero Padded  %016zu|\n", (size_t)10);
+    printf_("ZNum Left Padded  %-16zu|\n", (size_t)10);
+    printf_("ZNum LZ Padded    %0-16zu|\n", (size_t)10);
+
+    printf_("LLNum Regular      %llu|\n", (long long int)10);
+    printf_("LLNum Space Padded % 16llu|\n", (long long int)10);
+    printf_("LLNum Space Omit   %16llu|\n", (long long int)10);
+    printf_("LLNum Zero Padded  %016llu|\n", (long long int)10);
+    printf_("LLNum Left Padded  %-16llu|\n", (long long int)10);
+    printf_("LLNum LZ Padded    %0-16llu|\n", (long long int)10);
+
+    printf_("LLNum Regular      %ju|\n", (uintmax_t)10);
+    printf_("LLNum Space Padded % 16ju|\n", (uintmax_t)10);
+    printf_("LLNum Space Omit   %16ju|\n", (uintmax_t)10);
+    printf_("LLNum Zero Padded  %016ju|\n", (uintmax_t)10);
+    printf_("LLNum Left Padded  %-16ju|\n", (uintmax_t)10);
+    printf_("LLNum LZ Padded    %0-16ju|\n", (uintmax_t)10);
+
     printf_("Pristine\n");
     printf_("Kernel Version " PRISTINE_VERSION_STR "\n");
 
-    printf_("KERNEL_BASE_VIRT      : %llx\n", KERNEL_BASE_VIRT);
+    printf_("KERNEL_BASE_VIRT      : %lx\n", (uint64_t)KERNEL_BASE_VIRT);
     printf_("KERNEL_STACK_START    : %lx\n", (uint64_t)__kernel_stack_start);
     printf_("KERNEL_TSS_RSP0_START : %lx\n", (uint64_t)__kernel_rsp0_start);
     printf_("KERNEL_TSS_IST1_START : %lx\n", (uint64_t)__kernel_ist1_start);
