@@ -294,7 +294,7 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
             }
             printf("Program header address: 0x%lx\n", phdr.p_paddr);
             printf("Size: %lu\n", phdr.p_filesz);
-            uint8_t *phaddr = (uint8_t*)phdr.p_paddr;
+            uint8_t *phaddr = (uint8_t*)(uintptr_t)phdr.p_paddr;
             int64_t remaining = phdr.p_filesz;
             while (remaining > 0) {
                 if (remaining < header.block_size) {
@@ -325,15 +325,15 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     memset((void*)__pg_pdpt_higher_half, 0, PAGE_DEFAULT_SIZE);
     memset((void*)__pg_pd_kernel, 0, PAGE_DEFAULT_SIZE);
 
-    __pg_pml4[0]   = (uint64_t)__pg_pdpt_ident       | PAGING_PML4_DEFAULT_FLAGS;
-    __pg_pml4[256] = (uint64_t)__pg_pdpt_higher_half | PAGING_PML4_DEFAULT_FLAGS;
-    __pg_pml4[511] = (uint64_t)__pg_pdpt_kernel      | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pml4[0]   = (uint64_t)(uintptr_t)__pg_pdpt_ident       | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pml4[256] = (uint64_t)(uintptr_t)__pg_pdpt_higher_half | PAGING_PML4_DEFAULT_FLAGS;
+    __pg_pml4[511] = (uint64_t)(uintptr_t)__pg_pdpt_kernel      | PAGING_PML4_DEFAULT_FLAGS;
 
-    __pg_pdpt_kernel[510] = (uint64_t)__pg_pd_kernel | PAGING_PDPT_DEFAULT_FLAGS;
-    __pg_pdpt_ident[0]    = (uint64_t)__pg_pd_ident  | PAGING_PDPT_DEFAULT_FLAGS;
+    __pg_pdpt_kernel[510] = (uint64_t)(uintptr_t)__pg_pd_kernel | PAGING_PDPT_DEFAULT_FLAGS;
+    __pg_pdpt_ident[0]    = (uint64_t)(uintptr_t)__pg_pd_ident  | PAGING_PDPT_DEFAULT_FLAGS;
 
-    __pg_pd_ident[0]      = (uint64_t)__pg_pt_ident0 | PAGING_PD_DEFAULT_FLAGS;
-    __pg_pd_ident[1]      = (uint64_t)__pg_pt_ident1 | PAGING_PD_DEFAULT_FLAGS;
+    __pg_pd_ident[0]      = (uint64_t)(uintptr_t)__pg_pt_ident0 | PAGING_PD_DEFAULT_FLAGS;
+    __pg_pd_ident[1]      = (uint64_t)(uintptr_t)__pg_pt_ident1 | PAGING_PD_DEFAULT_FLAGS;
     
     for (size_t i = 0; i < 4; i++) {
         __pg_pd_kernel[i] = (i * PAGE_LARGE_SIZE) | PAGING_PD_LARGE_FLAGS;
@@ -344,8 +344,8 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     }
 
     for (size_t i = 0; i < 512; i++) {
-        __pg_pt_ident0[i] = (i * PAGE_DEFAULT_SIZE)            | PAGING_PT_DEFAULT_FLAGS;
-        __pg_pt_ident1[i] = (i * PAGE_DEFAULT_SIZE) + 0x200000 | PAGING_PT_DEFAULT_FLAGS;
+        __pg_pt_ident0[i] =  (i * PAGE_DEFAULT_SIZE)             | PAGING_PT_DEFAULT_FLAGS;
+        __pg_pt_ident1[i] = ((i * PAGE_DEFAULT_SIZE) + 0x200000) | PAGING_PT_DEFAULT_FLAGS;
     }
 
     gdt_set_entry(__gdt, 0, 0, 0, 0, 0);                  // null segment descriptor

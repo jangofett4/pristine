@@ -13,12 +13,12 @@
 #define ALIGN_UP(value, align)   (((value) + (align) - 1) & ~((align) - 1))
 #define ALIGN_DOWN(value, align) ((value) & ~((align) - 1))
 
-static inline void *phys_to_virt(uint64_t phys) {
+static inline void *phys_to_virt(uintptr_t phys) {
     return (void*)(phys + PMM_HHDM_START);
 }
 
-static inline uint64_t virt_to_phys(void *virt) {
-    return (uint64_t)virt - PMM_HHDM_START;
+static inline uintptr_t virt_to_phys(void *virt) {
+    return (uintptr_t)virt - PMM_HHDM_START;
 }
 
 static inline int is_aligned(uint64_t addr, uint64_t alignment) {
