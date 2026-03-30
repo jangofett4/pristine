@@ -10,11 +10,11 @@
 #include <common/common.h>
 #include <common/string.h>
 
-uint64_t *__vmm_pml4;
+uint64_t *vmm_pml4;
 
 void vmm_init(void) {
-    __vmm_pml4 = phys_to_virt(pmm_alloc());
-    memset(__vmm_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
+    vmm_pml4 = phys_to_virt(pmm_alloc());
+    memset(vmm_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
 }
 
 void vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags) {
@@ -273,13 +273,13 @@ void *vmm_alloc(void) {
     uint64_t *table_ptr;
 
     // create PDPT in PML4 if doesn't exists
-    if (__vmm_pml4[pml4idx] == 0) {
+    if (vmm_pml4[pml4idx] == 0) {
         table_phys_addr = pmm_alloc();
-        __vmm_pml4[pml4idx] = table_phys_addr | VMM_FLAGS_TABLE_KERNEL;
+        vmm_pml4[pml4idx] = table_phys_addr | VMM_FLAGS_TABLE_KERNEL;
         table_ptr = phys_to_virt(table_phys_addr);
         memset(table_ptr, 0, VMM_DEFAULT_PAGE_SIZE);
     } else {
-        table_ptr = phys_to_virt(__vmm_pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+        table_ptr = phys_to_virt(vmm_pml4[pml4idx] & VMM_PTE_ADDR_MASK);
     }
 
     // create PD in PDPT if doesn't exists

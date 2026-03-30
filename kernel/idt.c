@@ -122,8 +122,8 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
     IDT64ISRDispatch handler = dispatch_table[frame->int_no];
     
     if (!handler) {
-        // printf("idt64_isr_handler: unhandled vector 0x%016x\n", frame->int_no);
-        // idt64_debug_print_frame(frame);
+        printf_("idt64_isr_handler: unhandled vector 0x%016x\n", frame->int_no);
+        idt64_debug_print_frame(frame);
         if (frame->int_no < 32) {
             // CPU exception with no handler = panic, halt
             uint64_t cr2, cr3, fs, gs;
@@ -131,7 +131,7 @@ void idt64_isr_handler(IDT64ISRFrame *frame) {
             __asm__ volatile("mov %%cr3, %0" : "=r"(cr3) :);
             __asm__ volatile("mov %%fs, %0" : "=r"(fs) :);
             __asm__ volatile("mov %%gs, %0" : "=r"(gs) :);
-            KPANIC("Unhandled exception 0x%lx, error code 0x%lx {\n CR2 = 0x%016lx\n CR3 = 0x%016lx\n FS = 0x%016lx\n GS = 0x%016lx\n}", frame->int_no, frame->err_code, cr2, cr3, fs, gs);
+            KPANIC("Unhandled exception 0x%02lx, error code 0x%02lx {\n CR2 = 0x%016lx\n CR3 = 0x%016lx\n FS = 0x%016lx\n GS = 0x%016lx\n}", frame->int_no, frame->err_code, cr2, cr3, fs, gs);
         }
     } else {
         handler(frame);

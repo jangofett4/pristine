@@ -35,7 +35,7 @@
 #define VMM_PDPT_HUGE_FLAGS    0x80
 #define VMM_PD_LARGE_FLAGS     0x80
 
-extern uint64_t *__vmm_pml4;
+extern uint64_t *vmm_pml4;
 
 void  vmm_init(void);
 

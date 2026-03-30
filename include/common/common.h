@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <kernel/kernel.h>
 #include <kernel/pmm.h>
 
 #include <stdint.h>
@@ -19,6 +20,14 @@ static inline void *phys_to_virt(uintptr_t phys) {
 
 static inline uintptr_t virt_to_phys(void *virt) {
     return (uintptr_t)virt - PMM_HHDM_START;
+}
+
+static inline void *kernel_phys_to_virt(uintptr_t phys) {
+    return (void*)(phys + KERNEL_BASE_OFFSET);
+}
+
+static inline uintptr_t kernel_virt_to_phys(void *virt) {
+    return (uintptr_t)virt - KERNEL_BASE_OFFSET;
 }
 
 static inline int is_aligned(uint64_t addr, uint64_t alignment) {

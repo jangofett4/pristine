@@ -5,36 +5,22 @@
 
 #pragma once
 
-#include <common/bootinfo.h>
-#include <common/bsfs/bsfs.h>
-#include <common/bsfs/bsfs_ops.h>
-#include <common/disk.h>
-#include <common/gdt.h>
-#include <common/serial.h>
-#include <drivers/video/video.h>
 #include <stdint.h>
 
 #define KERNEL_BASE_PHYS      (0x400000)
 #define KERNEL_END_PHYS       (KERNEL_BASE_PHYS + 0x200000)
 
-#define KERNEL_BASE_VIRT      (0xFFFFFFFF80000000ULL + KERNEL_BASE_PHYS)
+#define KERNEL_BASE_OFFSET    0xFFFFFFFF80000000ULL
+#define KERNEL_BASE_VIRT      (KERNEL_BASE_OFFSET + KERNEL_BASE_PHYS)
 
 extern uint8_t __kernel_ist1_start[];
 extern uint8_t __kernel_rsp0_start[];
 extern uint8_t __kernel_stack_start[];
 
-typedef struct {
-    BootInfo       bootinfo;
-    
-    uint64_t      *gdt;
-    TSSEntry      *tss;
-    uint8_t       *memory_bitmap;
+extern uint8_t __kernel_stack_guard[];
+extern uint8_t __kernel_rsp0_guard[];
+extern uint8_t __kernel_ist1_guard[];
 
-    Serial        serial;
-    Video         video;
-    DiskOpsVtable disk_ops;
-    BsfsHeader    bsfs_header;
-    BsfsContext   bsfs_context;
-
-    uint64_t      system_memory;
-} KernelState;
+#define KERNEL_STACK_SIZE (0x1000 * 4)
+#define KERNEL_RSP0_SIZE  (0x1000 * 1)
+#define KERNEL_IST1_SIZE  (0x1000 * 1)
