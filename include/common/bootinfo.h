@@ -49,7 +49,5 @@ typedef struct {
     VesaVbeModeInfo vesa_vbe_mode_info;
 } BootInfo;
 
-static BootInfo __global_bootinfo;
-
 void     bootinfo_init(BootInfo *bootinfo, const uint64_t bootinfo_addr);
 BootInfo bootinfo_copy(const RawBootInfo *ptr);

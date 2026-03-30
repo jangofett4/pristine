@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define DISK_READ_MAX_BLOCKS 32
+#define DISK_READ_MAX_BLOCKS 8
 
 typedef struct {
     uint8_t (*read) (uint32_t lba, size_t block_count, uint8_t *buf);

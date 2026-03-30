@@ -17,16 +17,3 @@
 #include <common/gdt.h>
 
 #include <stdint.h>
-
-static uint64_t          *__global_gdt;
-static TSSEntry          *__global_tss;
-static uint8_t           *__global_memory_bitmap;
-
-static Serial        __global_serial;
-static Video         __global_video;
-static DiskOpsVtable __global_diskops;
-static BsfsHeader    __global_bsfsheader;
-static BsfsContext   __global_bsfscontext;
-
-static uint8_t __global_tmp_diskbuf[ATA_PIO_SECTOR_SIZE];
-static uint8_t __global_disk_scratchbuf[ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS];

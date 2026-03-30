@@ -15,6 +15,7 @@
 
 // This is a bit big
 static IDT64ISRDispatch dispatch_table[IDT64_SIZE] = {0};
+static IDT64Entry __global_idt[IDT64_SIZE];
 
 void idt64_init(void) {
     memset(__global_idt, 0, sizeof(IDT64Entry) * IDT64_SIZE);
@@ -66,6 +67,14 @@ void idt64_init(void) {
     idt64_set_entry_int (__global_idt, 45, (uint64_t)pic_isr_45,   0);
     idt64_set_entry_int (__global_idt, 46, (uint64_t)pic_isr_46,   0);
     idt64_set_entry_int (__global_idt, 47, (uint64_t)pic_isr_47,   0);
+}
+
+void idt64_reload_idtr(void) {
+    IDT64Ptr idt_ptr = {
+        .limit = (IDT64_SIZE * sizeof(IDT64Entry)) - 1,
+        .base = (uint64_t)(uintptr_t)&__global_idt
+    };
+    idt64_load_idtr(&idt_ptr);
 }
 
 void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist) {

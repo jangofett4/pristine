@@ -5,6 +5,13 @@
 
 #pragma once
 
+#include <common/bootinfo.h>
+#include <common/bsfs/bsfs.h>
+#include <common/bsfs/bsfs_ops.h>
+#include <common/disk.h>
+#include <common/gdt.h>
+#include <common/serial.h>
+#include <drivers/video/video.h>
 #include <stdint.h>
 
 #define KERNEL_BASE_PHYS      (0x400000)
@@ -16,4 +23,18 @@ extern uint8_t __kernel_ist1_start[];
 extern uint8_t __kernel_rsp0_start[];
 extern uint8_t __kernel_stack_start[];
 
-static uint64_t __kernel_system_memory;
+typedef struct {
+    BootInfo       bootinfo;
+    
+    uint64_t      *gdt;
+    TSSEntry      *tss;
+    uint8_t       *memory_bitmap;
+
+    Serial        serial;
+    Video         video;
+    DiskOpsVtable disk_ops;
+    BsfsHeader    bsfs_header;
+    BsfsContext   bsfs_context;
+
+    uint64_t      system_memory;
+} KernelState;
