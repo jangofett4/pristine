@@ -10,3 +10,4 @@ tools/bsfs/.ignore
 .cache
 compile_commands.json
 root/kernel.elf
+root/bin/*

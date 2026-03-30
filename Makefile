@@ -1,3 +1,5 @@
+export REPO_ROOT = $(shell pwd)
+
 ASM      = nasm
 ASMFLAGS = -f elf32 -g
 
@@ -8,10 +10,13 @@ LDGUEST64      = ${CROSSGCC64}ld
 OBJCOPYGUEST32 = ${CROSSBINUTILS32}objcopy
 OBJCOPYGUEST64 = ${CROSSBINUTILS64}objcopy
 
+export CGUEST64
+export LDGUEST64
+
 LDHOST   = ld
 CHOST    = gcc
 
-LDFLAGS  =     -nostdlib -nostartfiles -nodefaultlibs -lgcc
+LDFLAGS  = -nostdlib -nostartfiles -nodefaultlibs -lgcc
 
 COPT	 = -Werror=return-type -Wall -std=c23
 CFLAGS32 = -ffreestanding -c -m32 \
@@ -68,6 +73,11 @@ BSFS_EXTRACT_SRCS  = tools/bsfs/bsfs-extract.c tools/bsfs/bsfs.c
 
 CFLAGS_BSFS = -Iinclude/common/bsfs -O2 -std=c11 -DBSFS_DEBUG=1 -DBSFS_STDLIB_EXISTS=1 -g
 
+# Apps
+
+APPS_RAW = libc hello
+APPS     = $(patsubst %, userspace/%, $(APPS_RAW))
+
 ifdef DEBUG
 	COPT += -DPRISTINE_DEBUG -O0 -g 
 else
@@ -77,9 +87,9 @@ endif
 # Auto-generated header dependencies
 -include $(shell find bin -name "*.d" 2>/dev/null)
 
-.PHONY: all clean qemu debug
+.PHONY: all $(APPS) clean qemu debug
 
-all: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract
+all: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract $(APPS)
 
 # ---- Stage 1 ----
 bin/boot/stage1/%.o: boot/stage1/%.asm $(S1_INCSRCS)
@@ -151,6 +161,10 @@ bin/bsfs-extract: $(BSFS_EXTRACT_SRCS)
 	@mkdir -p $(dir $@)
 	$(CHOST) $(CFLAGS_BSFS) $^ -o $@
 
+# ---- Apps ----
+$(APPS):
+	$(MAKE) -C $@
+
 # ---- Final image ----
 bin/hda.img: bin/boot/stage1/stage1.bin bin/boot/stage2/stage2.bin bin/kernel.elf bin/mkfs.bsfs bin/bsfs-populate bin/bsfs-extract
 	@mkdir -p bin/hda
@@ -171,3 +185,4 @@ debug: bin/hda.img
 
 clean:
 	rm -rf bin
+	for app in $(APPS); do $(MAKE) -C $$app clean; done
