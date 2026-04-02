@@ -23,14 +23,14 @@ CFLAGS32 = -ffreestanding -c -m32 \
            -fno-stack-protector -mno-red-zone \
            -Iinclude -Ilib -fno-omit-frame-pointer \
 		   -fno-asynchronous-unwind-tables \
-           -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx \
+           -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx -mno-avx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT)
 
 CFLAGS64 = -ffreestanding -c -m64 \
            -fno-stack-protector -mno-red-zone \
            -Iboot/stage2 -Iinclude -Ilib -fno-omit-frame-pointer \
 		   -fno-asynchronous-unwind-tables \
-           -MMD -MP -fno-pic -fno-pie -mno-mmx \
+           -MMD -MP -fno-pic -fno-pie -mno-sse -mno-sse2 -mno-mmx -mno-avx \
 		   -fno-builtin-memcpy -fno-builtin-memset $(COPT) -mcmodel=kernel
 
 
