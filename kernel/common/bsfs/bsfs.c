@@ -10,6 +10,7 @@
 
 #include <common/disk.h>
 #include <common/string.h>
+#include <common/crc32.h>
 #include <stdint.h>
 
 uint32_t bsfs_resolve_path(const BsfsContext *context, const char* path) {
@@ -229,4 +230,24 @@ const char *bsfs_strerror(int err) {
         default: return "unknown error";
     }
 }
+
+int bsfs_verify_checksum(const BsfsContext *context, BsfsFile *file, uint8_t *buf, size_t bufsize) {
+    int read = 0;
+    uint32_t checksum = 0xFFFFFFFF;
+    while (!file->eof) {
+        if ((read = bsfs_fread(context, buf, 1, bufsize, file)) < 0) {
+            return read;
+        }
+        checksum = crc32_update(checksum, buf, read);
+    }
+
+    checksum = crc32_finalize(checksum);
+
+    if (checksum != file->inode->checksum) {
+        return BSFS_CHECKSUM_FAILED;
+    }
+
+    return 1;
+}
+
 #undef BSFS_CASE
