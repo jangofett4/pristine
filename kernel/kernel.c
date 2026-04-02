@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <common/memmap.h>
+#include <kernel/syscall.h>
+#include <uapi/syscall.h>
 #include <stdint.h>
 
 #include <pristine.h>
@@ -14,6 +15,11 @@
 #include <kernel/global.h>
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
+#include <kernel/process.h>
+#include <kernel/msr.h>
+#include <common/crc32.h>
+#include <common/elf.h>
+#include <common/memmap.h>
 #include <common/common.h>
 #include <common/pic.h>
 #include <common/gdt.h>
@@ -128,11 +134,16 @@ void kmain(uint64_t bootinfo_addr) {
     printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
     printf_("TSS.IST1 %p\n", __kernel_ist1_start);
 
-    gdt_set_tss_entry(kernel_state.gdt, 3, (void*)kernel_state.tss, 0x89, 0, sizeof(TSSEntry) - 1);
-    gdt_load_gdtr(kernel_state.gdt, 5);
+    // gdt[0] -> null (offset 0)
+    // gdt[1] -> kernel code (offset 0x08)
+    // gdt[2] -> kernel data (offset 0x10)
+    gdt_set_entry(kernel_state.gdt, 3, 0, UINT32_MAX, 0xF2, 0xA); // User data
+    gdt_set_entry(kernel_state.gdt, 4, 0, UINT32_MAX, 0xFA, 0xA); // User code
+    gdt_set_tss_entry(kernel_state.gdt, 5, (void*)kernel_state.tss, 0x89, 0, sizeof(TSSEntry) - 1);
+    gdt_load_gdtr(kernel_state.gdt, 7);
     gdt_reload_cs(0x08);
     gdt_reload_segments(0x10);
-    gdt_load_tss(0x18);
+    gdt_load_tss(0x28);
 
     // ======== Paging ========
 
@@ -194,6 +205,20 @@ void kmain(uint64_t bootinfo_addr) {
     vmm_switch(vmm_pml4);
     idt64_enable_interrupts();
 
+    // ======== Syscall ========
+
+    uint64_t msr_star = ((0x10ULL << 48) | (0x08ULL << 32)) & (0xFFFFFFFF00000000);
+    uint64_t msr_lstar = (uint64_t)(uintptr_t)syscall_stub;
+    //                    v SF bit    v IF bit    v DF bit
+    uint64_t msr_sfmask = 1ULL << 8 | 1ULL << 9 | 1ULL << 10;
+    wrmsr(MSR_REG_STAR, msr_star);
+    wrmsr(MSR_REG_LSTAR, msr_lstar);
+    wrmsr(MSR_REG_SFMASK, msr_sfmask);
+    wrmsr(MSR_REG_GSBASE, (uint64_t)(uintptr_t)&kernel_state);
+    wrmsr(MSR_REG_KERNELGSBASE, 0);
+
+    syscall_init(&kernel_state);
+
     // ======== BSFS ========
 
     kernel_state.disk_ops = ata_pio_get_disk_ops();
@@ -222,6 +247,75 @@ void kmain(uint64_t bootinfo_addr) {
     };
 
     printf_("BSFS Version %x\n", kernel_state.bsfs_header.version);
+
+    BsfsInode hello_inode;
+    BsfsFile hello_file = {
+        .inode = &hello_inode,
+        .buf = (uint8_t*)arena_alloc(kernel_state.bsfs_header.block_size, 1),
+        .bufsize = kernel_state.bsfs_header.block_size,
+        .l1_table = (uint32_t*)arena_alloc(kernel_state.bsfs_header.block_size, 1)
+    };
+    int read = 0;
+    if ((read = bsfs_fopen(&kernel_state.bsfs_context, "/bin/hello.elf", &hello_file)) < 0) {
+        const char* err = bsfs_strerror(read);
+        KPANIC("kernel: cannot open hello.elf: %s", err);
+    }
+    
+    if ((read = bsfs_verify_checksum(&kernel_state.bsfs_context, &hello_file, (uint8_t*)arena_alloc(512, 1), 512)) < 0) {
+        const char* err = bsfs_strerror(read);
+        KPANIC("kernel: bsfs_verify_checksum failed: %s", err);
+    }
+
+    bsfs_fseeko(&kernel_state.bsfs_context, &hello_file, 0, BSFS_FSEEKO_SET);
+
+    uint64_t  hello_pml4_phys = pmm_alloc();
+    uint64_t *hello_pml4_hhdm = phys_to_virt(hello_pml4_phys);
+    memset(hello_pml4_hhdm, 0, VMM_DEFAULT_PAGE_SIZE);
+    Process hello_process = {
+        .pml4 = hello_pml4_hhdm,
+    };
+
+    Elf64Ehdr hello_file_hdr;
+    elf64_load_executable(&kernel_state.bsfs_context, &hello_file, hello_pml4_hhdm, &hello_file_hdr);
+    
+    // Userspace stack allocation
+    size_t num_process_stack_pages = PROCESS_USERSPACE_DEFAULT_STACK_SIZE / VMM_DEFAULT_PAGE_SIZE;
+    for (size_t i = 1; i <= num_process_stack_pages; i++) {
+        uint64_t phys_page = pmm_alloc();
+        uint64_t virt_addr = PROCESS_USERSPACE_VIRT_STACK_TOP - (i * VMM_DEFAULT_PAGE_SIZE);
+        vmm_map(hello_pml4_hhdm, phys_page, virt_addr, VMM_FLAGS_USER_DATA);
+    }
+
+    // Dedicated kernel stack allocation
+    size_t num_process_kernel_stack_pages = PROCESS_USERSPACE_DEFAULT_KERNEL_STACK_SIZE / VMM_DEFAULT_PAGE_SIZE;
+    for (size_t i = 1; i <= num_process_kernel_stack_pages; i++) {
+        uint64_t phys_page = pmm_alloc();
+        uint64_t virt_addr = PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP - (i * VMM_DEFAULT_PAGE_SIZE);
+        vmm_map(hello_pml4_hhdm, phys_page, virt_addr, VMM_FLAGS_KERNEL_DATA);
+    }
+
+    hello_process.entry = hello_file_hdr.e_entry;
+    hello_process.stack_top = PROCESS_USERSPACE_VIRT_STACK_TOP;
+    hello_process.kernel_stack_top = PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP;
+
+    // "Copy" over HHDM & kernel mapping
+    hello_pml4_hhdm[256] = vmm_pml4[256];
+    hello_pml4_hhdm[511] = vmm_pml4[511];
+
+    // Setup "context switch"
+    kernel_state.kernel_stack_top = hello_process.kernel_stack_top;
+    kernel_state.user_stack_rsp = hello_process.stack_top;
+    kernel_state.current_process = &hello_process;
+    
+    printf_("hello.elf Entry: 0x%016x\n", hello_file_hdr.e_entry);
+
+    process_start_trampoline(&hello_process);
+
+    vmm_destroy(hello_pml4_hhdm);
+    pmm_free(hello_pml4_phys);
+    arena_reset();
+
+    printf_("We good.\n");
 
     while(1);
 }
