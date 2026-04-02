@@ -2,9 +2,15 @@ ifndef REPO_ROOT
     $(error REPO_ROOT is not set. Run from root Makefile)
 endif
 
-CC      := $(CGUEST64)
-CFLAGS  := -ffreestanding -nostdlib -O2 -Wall -Wextra -c
-TARGET  := $(REPO_ROOT)/bin/userspace/libc/crt0.o
+ifdef DEBUG
+	COPT += -DPRISTINE_DEBUG -O0 -g 
+else
+	COPT += -O2
+endif
+
+CC      = $(CGUEST64)
+CFLAGS  = -ffreestanding -nostdlib -O2 -Wall -Wextra -c $(COPT)
+TARGET  = $(REPO_ROOT)/bin/userspace/libc/crt0.o
 
 all: $(TARGET)
 
