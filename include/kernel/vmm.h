@@ -48,8 +48,11 @@ void  vmm_unmap_large(uint64_t *pml4, uint64_t virt);
 void  vmm_map_huge(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags);
 void  vmm_unmap_huge(uint64_t *pml4, uint64_t virt);
 
-void *vmm_alloc(void);
-void  vmm_free(void* memory);
+// Deallocates all sub entries of given PML4, doesn't free the PML4 itself. Only destroys up to PML4[256], upper half is untouched.
+void  vmm_destroy(uint64_t *pml4);
+
+// void *vmm_alloc(void);
+// void  vmm_free(void* memory);
 void  vmm_switch(uint64_t *pml4);
 
 static inline void vmm_invlpg(void* address) {

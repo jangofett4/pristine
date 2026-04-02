@@ -263,6 +263,30 @@ void vmm_unmap_huge(uint64_t *pml4, uint64_t virt) {
     table_ptr[pdptidx] = 0;
 }
 
+void vmm_destroy(uint64_t *pml4) {
+    for (size_t pml4idx = 0; pml4idx < 256; pml4idx++) { // skip upper half, kernel is mapped there
+        if (pml4[pml4idx] == 0) continue;
+        uint64_t *pdpt_table = phys_to_virt(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+        for (size_t pdptidx = 0; pdptidx < 512; pdptidx++) {
+            if (pdpt_table[pdptidx] == 0) continue;
+            if (pdpt_table[pdptidx] & VMM_PDPT_HUGE_FLAGS) continue;
+            uint64_t *pd_table = phys_to_virt(pdpt_table[pdptidx] & VMM_PTE_ADDR_MASK);
+            for (size_t pdidx = 0; pdidx < 512; pdidx++) {
+                if (pd_table[pdidx] == 0) continue;
+                if (pd_table[pdidx] & VMM_PD_LARGE_FLAGS) continue;
+                uint64_t *pt_table = phys_to_virt(pd_table[pdidx] & VMM_PTE_ADDR_MASK);
+                for (size_t ptidx = 0; ptidx < 512; ptidx++) {
+                    if (pt_table[ptidx] == 0) continue;
+                    pmm_free(pt_table[ptidx] & VMM_PTE_ADDR_MASK);
+                }
+                pmm_free(pd_table[pdidx] & VMM_PTE_ADDR_MASK);
+            }
+            pmm_free(pdpt_table[pdptidx] & VMM_PTE_ADDR_MASK);
+        }
+        pmm_free(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+    }
+}
+
 void *vmm_alloc(void) {
     uint64_t addr = pmm_alloc();
     const uint16_t pml4idx = VMM_PML4_IDX(addr);
