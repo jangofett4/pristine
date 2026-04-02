@@ -15,7 +15,7 @@
 #define ALIGN_DOWN(value, align) ((value) & ~((align) - 1))
 
 static inline void *phys_to_virt(uintptr_t phys) {
-    return (void*)(phys + PMM_HHDM_START);
+    return (void*)(uintptr_t)(phys + PMM_HHDM_START);
 }
 
 static inline uintptr_t virt_to_phys(void *virt) {
@@ -23,7 +23,7 @@ static inline uintptr_t virt_to_phys(void *virt) {
 }
 
 static inline void *kernel_phys_to_virt(uintptr_t phys) {
-    return (void*)(phys + KERNEL_BASE_OFFSET);
+    return (void*)(uintptr_t)(phys + KERNEL_BASE_OFFSET);
 }
 
 static inline uintptr_t kernel_virt_to_phys(void *virt) {
