@@ -206,7 +206,9 @@ __attribute__((section(".text.stage2"))) void stage2_boot(void) {
     int fread_count = -1;
 
     arena_reset();
+    BsfsInode kernel_inode;
     BsfsFile kernel_file = {
+        .inode = &kernel_inode,
         .buf = (uint8_t*)arena_alloc(header.block_size * 2, 1),
         .bufsize = header.block_size,
         .l1_table = (uint32_t*)arena_alloc(header.block_size, 1),
