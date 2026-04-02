@@ -1,14 +1,32 @@
 /*
  * Pristine
- * elf: ELF structures
+ * elf: ELF handling functions and structures
  * SPDX-License-Identifier: MIT
  */
 
 #pragma once
 
+#include <common/bsfs/bsfs_ops.h>
+
 #include <stdint.h>
 
 #define PT_LOAD 0x01
+
+#define ELF_ERRORS(X) \
+    X(ELF_LOAD_READ_ERROR,           -1,  "unable to read file")\
+    X(ELF_LOAD_SEEK_ERROR,           -2,  "unable to seek in file")\
+    X(ELF_LOAD_INVALID_ELF_MAGIC,    -3,  "invalid elf magic")\
+    X(ELF_LOAD_NOT_ELF64,            -4,  "file is not ELF64 compiled")\
+    X(ELF_LOAD_NOT_LITTLE_ENDIAN,    -5,  "file is not little endian ELF64")\
+    X(ELF_LOAD_NOT_EXECUTABLE,       -6,  "file is not a executable ELF")\
+    X(ELF_LOAD_MALFORMED,            -7,  "file contains a malformed ELF header")\
+    X(ELF_LOAD_FILESZ_EXCEEDS_MEMSZ, -8,  "p_filesz exceeds p_memsz in PT_LOAD segment")\
+    X(ELF_LOAD_PHENTSIZE_MISMATCH,   -9,  "e_phentsize is not equal to size of Elf64Phdr")
+
+#define ELF_DEFINE(name, code, msg) static const int name = code;
+ELF_ERRORS(ELF_DEFINE);
+
+#undef BSFS_DEFINE
 
 typedef struct {
     uint8_t  e_ident[16];
@@ -37,3 +55,14 @@ typedef struct {
     uint64_t p_memsz;
     uint64_t p_align;
 } __attribute__((packed)) Elf64Phdr;
+
+static inline bool elf64_check_magic(const Elf64Ehdr *hdr) {
+    return hdr->e_ident[0] == 0x7F &&
+           hdr->e_ident[1] == 0x45 &&
+           hdr->e_ident[2] == 0x4C &&
+           hdr->e_ident[3] == 0x46  ;
+}
+
+// Loads given file 
+int elf64_load_executable(BsfsContext *context, BsfsFile *file, uint64_t *pml4, Elf64Ehdr *out_header);
+const char *elf64_strerror(int err);
