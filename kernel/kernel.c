@@ -41,7 +41,8 @@
 
 #include <printf.h>
 
-KernelState kernel_state;
+GlobalState global_state;
+CpuState cpu_state;
 
 void kmain(uint64_t bootinfo_addr) {
     // verify we're running where we think we are
@@ -53,7 +54,7 @@ void kmain(uint64_t bootinfo_addr) {
 
     arena_reset();
 
-    bootinfo_init(&kernel_state.bootinfo, bootinfo_addr);
+    bootinfo_init(&global_state.bootinfo, bootinfo_addr);
 
     // ======== IDT64 ========
     idt64_disable_interrupts();
@@ -70,26 +71,26 @@ void kmain(uint64_t bootinfo_addr) {
 
     // ======== Globals ========
 
-    serial_init(&kernel_state.serial, 0x3F8);
-    serial_set_default(&kernel_state.serial);
+    serial_init(&global_state.serial, 0x3F8);
+    serial_set_default(&global_state.serial);
 
-    video_init(&kernel_state.video, &kernel_state.bootinfo.vesa_vbe_mode_info);
-    video_set_default(&kernel_state.video);
+    video_init(&global_state.video, &global_state.bootinfo.vesa_vbe_mode_info);
+    video_set_default(&global_state.video);
 
-    kernel_state.memory_bitmap = kernel_state.bootinfo.memory_bitmap;
-    pmm_init(kernel_state.memory_bitmap, kernel_state.bootinfo.memory_bitmap_size);
-    bitmap_clear_all(kernel_state.memory_bitmap, kernel_state.bootinfo.memory_bitmap_size);
+    global_state.memory_bitmap = global_state.bootinfo.memory_bitmap;
+    pmm_init(global_state.memory_bitmap, global_state.bootinfo.memory_bitmap_size);
+    bitmap_clear_all(global_state.memory_bitmap, global_state.bootinfo.memory_bitmap_size);
 
     // ======== Memory Map ========
 
-    if (kernel_state.bootinfo.memory_map_count > MEMMAP_MAX_ITEMS) {
+    if (global_state.bootinfo.memory_map_count > MEMMAP_MAX_ITEMS) {
         KPANIC("kernel: memory map exceeds maximum items of %i, possibly malformed memory", MEMMAP_MAX_ITEMS);
     }
 
-    kernel_state.system_memory = memmap_bitmap_init(kernel_state.bootinfo.memory_map, kernel_state.bootinfo.memory_map_count, kernel_state.memory_bitmap);
+    global_state.system_memory = memmap_bitmap_init(global_state.bootinfo.memory_map, global_state.bootinfo.memory_map_count, global_state.memory_bitmap);
 
-    uint64_t memory_bitmap_start_phys = ((uint64_t)kernel_state.bootinfo.memory_bitmap) - PMM_HHDM_START;
-    uint64_t memory_bitmap_end_phys   = memory_bitmap_start_phys + kernel_state.bootinfo.memory_bitmap_size;
+    uint64_t memory_bitmap_start_phys = ((uint64_t)global_state.bootinfo.memory_bitmap) - PMM_HHDM_START;
+    uint64_t memory_bitmap_end_phys   = memory_bitmap_start_phys + global_state.bootinfo.memory_bitmap_size;
 
     uint64_t memory_bitmap_start_phys_aligned = ALIGN_UP(memory_bitmap_start_phys, VMM_DEFAULT_PAGE_SIZE);
     uint64_t memory_bitmap_end_phys_aligned   = ALIGN_DOWN(memory_bitmap_end_phys, VMM_DEFAULT_PAGE_SIZE);
@@ -103,33 +104,33 @@ void kmain(uint64_t bootinfo_addr) {
 
     // mark memory bitmap as used
     for (size_t i = memory_bitmap_start_phys_aligned; i < memory_bitmap_end_phys_aligned; i += VMM_DEFAULT_PAGE_SIZE) {
-        bitmap_set(kernel_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
+        bitmap_set(global_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
     // mark kernel memory area as used
     for (size_t i = KERNEL_BASE_PHYS; i < KERNEL_END_PHYS; i += VMM_DEFAULT_PAGE_SIZE) {
-        bitmap_set(kernel_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
+        bitmap_set(global_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
     // mark dangerous regions as used, no need to allocate 1 MiB of space here, but just being careful here
     for (size_t i = 0; i < 0x100000; i += VMM_DEFAULT_PAGE_SIZE) {
-        bitmap_set(kernel_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
+        bitmap_set(global_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
-    printf_("Total Usable Memory: %zu MiB\n", kernel_state.system_memory / 1024 / 1024);
+    printf_("Total Usable Memory: %zu MiB\n", global_state.system_memory / 1024 / 1024);
 
     // ======== GDT, TSS ========
 
-    kernel_state.gdt = phys_to_virt(pmm_alloc());
-    kernel_state.tss = phys_to_virt(pmm_alloc());
+    cpu_state.gdt = phys_to_virt(pmm_alloc());
+    cpu_state.tss = phys_to_virt(pmm_alloc());
 
-    printf_("GDT %p\n", kernel_state.gdt);
-    printf_("TSS %p\n", kernel_state.tss);
+    printf_("GDT %p\n", cpu_state.gdt);
+    printf_("TSS %p\n", cpu_state.tss);
 
-    memcpy(kernel_state.gdt, kernel_state.bootinfo.gdt, kernel_state.bootinfo.gdt_entries * sizeof(uint64_t));
+    memcpy(cpu_state.gdt, global_state.bootinfo.gdt, global_state.bootinfo.gdt_entries * sizeof(uint64_t));
     
-    kernel_state.tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
-    kernel_state.tss[0].ist1 = (uint64_t)__kernel_ist1_start;
+    cpu_state.tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
+    cpu_state.tss[0].ist1 = (uint64_t)__kernel_ist1_start;
 
     printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
     printf_("TSS.IST1 %p\n", __kernel_ist1_start);
@@ -137,18 +138,18 @@ void kmain(uint64_t bootinfo_addr) {
     // gdt[0] -> null (offset 0)
     // gdt[1] -> kernel code (offset 0x08)
     // gdt[2] -> kernel data (offset 0x10)
-    gdt_set_entry(kernel_state.gdt, 3, 0, UINT32_MAX, 0xF2, 0xA); // User data
-    gdt_set_entry(kernel_state.gdt, 4, 0, UINT32_MAX, 0xFA, 0xA); // User code
-    gdt_set_tss_entry(kernel_state.gdt, 5, (void*)kernel_state.tss, 0x89, 0, sizeof(TSSEntry) - 1);
-    gdt_load_gdtr(kernel_state.gdt, 7);
+    gdt_set_entry(cpu_state.gdt, 3, 0, UINT32_MAX, 0xF2, 0xA); // User data
+    gdt_set_entry(cpu_state.gdt, 4, 0, UINT32_MAX, 0xFA, 0xA); // User code
+    gdt_set_tss_entry(cpu_state.gdt, 5, (void*)cpu_state.tss, 0x89, 0, sizeof(TSSEntry) - 1);
+    gdt_load_gdtr(cpu_state.gdt, 7);
     gdt_reload_cs(0x08);
     gdt_reload_segments(0x10);
     gdt_load_tss(0x28);
 
     // ======== Paging ========
 
-    for (uint64_t i = kernel_state.bootinfo.raw.pml4_address; i < (kernel_state.bootinfo.raw.pml4_address + kernel_state.bootinfo.raw.page_table_count * VMM_DEFAULT_PAGE_SIZE); i += VMM_DEFAULT_PAGE_SIZE) {
-        bitmap_set(kernel_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
+    for (uint64_t i = global_state.bootinfo.raw.pml4_address; i < (global_state.bootinfo.raw.pml4_address + global_state.bootinfo.raw.page_table_count * VMM_DEFAULT_PAGE_SIZE); i += VMM_DEFAULT_PAGE_SIZE) {
+        bitmap_set(global_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
     vmm_init();
@@ -214,59 +215,59 @@ void kmain(uint64_t bootinfo_addr) {
     wrmsr(MSR_REG_STAR, msr_star);
     wrmsr(MSR_REG_LSTAR, msr_lstar);
     wrmsr(MSR_REG_SFMASK, msr_sfmask);
-    wrmsr(MSR_REG_GSBASE, (uint64_t)(uintptr_t)&kernel_state);
+    wrmsr(MSR_REG_GSBASE, (uint64_t)(uintptr_t)&cpu_state);
     wrmsr(MSR_REG_KERNELGSBASE, 0);
 
-    syscall_init(&kernel_state);
+    syscall_init(&global_state);
 
     // ======== BSFS ========
 
-    kernel_state.disk_ops = ata_pio_get_disk_ops();
+    global_state.disk_ops = ata_pio_get_disk_ops();
 
     const uint32_t bsfs_offset = PRISTINE_BSFS_OFFSET * 4096;
 
     uint8_t *tmp_diskbuf = arena_alloc(512, 1);
-    if (!kernel_state.disk_ops.read(bsfs_offset / ATA_PIO_SECTOR_SIZE, 1, tmp_diskbuf)) {
+    if (!global_state.disk_ops.read(bsfs_offset / ATA_PIO_SECTOR_SIZE, 1, tmp_diskbuf)) {
         KPANIC("unable to read disk");
     }
-    memcpy(&kernel_state.bsfs_header, tmp_diskbuf, sizeof(BsfsHeader));
+    memcpy(&global_state.bsfs_header, tmp_diskbuf, sizeof(BsfsHeader));
     arena_reset();
 
-    if (kernel_state.bsfs_header.block_size != PRISTINE_BSFS_BLOCKSIZE) {
-        KPANIC("invalid filesystem block size, expected %i, got %u", PRISTINE_BSFS_BLOCKSIZE, kernel_state.bsfs_header.block_size);
+    if (global_state.bsfs_header.block_size != PRISTINE_BSFS_BLOCKSIZE) {
+        KPANIC("invalid filesystem block size, expected %i, got %u", PRISTINE_BSFS_BLOCKSIZE, global_state.bsfs_header.block_size);
     }
 
     _Static_assert(ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS <= 4096, "disk scratch buffer doesn't fit inside a single page");
 
-    kernel_state.bsfs_context = (BsfsContext){
-        .disk_ops = &kernel_state.disk_ops,
-        .header = &kernel_state.bsfs_header,
+    global_state.bsfs_context = (BsfsContext){
+        .disk_ops = &global_state.disk_ops,
+        .header = &global_state.bsfs_header,
         .phys_sector_size = ATA_PIO_SECTOR_SIZE,
         .scratch_buf = phys_to_virt(pmm_alloc()),
         .scratch_buf_size = ATA_PIO_SECTOR_SIZE * DISK_READ_MAX_BLOCKS
     };
 
-    printf_("BSFS Version %x\n", kernel_state.bsfs_header.version);
+    printf_("BSFS Version %x\n", global_state.bsfs_header.version);
 
     BsfsInode hello_inode;
     BsfsFile hello_file = {
         .inode = &hello_inode,
-        .buf = (uint8_t*)arena_alloc(kernel_state.bsfs_header.block_size, 1),
-        .bufsize = kernel_state.bsfs_header.block_size,
-        .l1_table = (uint32_t*)arena_alloc(kernel_state.bsfs_header.block_size, 1)
+        .buf = (uint8_t*)arena_alloc(global_state.bsfs_header.block_size, 1),
+        .bufsize = global_state.bsfs_header.block_size,
+        .l1_table = (uint32_t*)arena_alloc(global_state.bsfs_header.block_size, 1)
     };
     int read = 0;
-    if ((read = bsfs_fopen(&kernel_state.bsfs_context, "/bin/hello.elf", &hello_file)) < 0) {
+    if ((read = bsfs_fopen(&global_state.bsfs_context, "/bin/hello.elf", &hello_file)) < 0) {
         const char* err = bsfs_strerror(read);
         KPANIC("kernel: cannot open hello.elf: %s", err);
     }
     
-    if ((read = bsfs_verify_checksum(&kernel_state.bsfs_context, &hello_file, (uint8_t*)arena_alloc(512, 1), 512)) < 0) {
+    if ((read = bsfs_verify_checksum(&global_state.bsfs_context, &hello_file, (uint8_t*)arena_alloc(512, 1), 512)) < 0) {
         const char* err = bsfs_strerror(read);
         KPANIC("kernel: bsfs_verify_checksum failed: %s", err);
     }
 
-    bsfs_fseeko(&kernel_state.bsfs_context, &hello_file, 0, BSFS_FSEEKO_SET);
+    bsfs_fseeko(&global_state.bsfs_context, &hello_file, 0, BSFS_FSEEKO_SET);
 
     uint64_t  hello_pml4_phys = pmm_alloc();
     uint64_t *hello_pml4_hhdm = phys_to_virt(hello_pml4_phys);
@@ -276,7 +277,7 @@ void kmain(uint64_t bootinfo_addr) {
     };
 
     Elf64Ehdr hello_file_hdr;
-    elf64_load_executable(&kernel_state.bsfs_context, &hello_file, hello_pml4_hhdm, &hello_file_hdr);
+    elf64_load_executable(&global_state.bsfs_context, &hello_file, hello_pml4_hhdm, &hello_file_hdr);
     
     // Userspace stack allocation
     size_t num_process_stack_pages = PROCESS_USERSPACE_DEFAULT_STACK_SIZE / VMM_DEFAULT_PAGE_SIZE;
@@ -303,9 +304,9 @@ void kmain(uint64_t bootinfo_addr) {
     hello_pml4_hhdm[511] = vmm_pml4[511];
 
     // Setup "context switch"
-    kernel_state.kernel_stack_top = hello_process.kernel_stack_top;
-    kernel_state.user_stack_rsp = hello_process.stack_top;
-    kernel_state.current_process = &hello_process;
+    cpu_state.kernel_stack_top = hello_process.kernel_stack_top;
+    cpu_state.user_stack_rsp = hello_process.stack_top;
+    cpu_state.current_process = &hello_process;
     
     printf_("hello.elf Entry: 0x%016x\n", hello_file_hdr.e_entry);
 

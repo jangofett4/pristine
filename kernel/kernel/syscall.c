@@ -5,12 +5,11 @@
  */
 
 #include <kernel/syscall.h>
-#include <common/serial.h>
 
-static const KernelState *kernel_state;
+static const GlobalState *global_state;
 
-void syscall_init(const KernelState *state) {
-    kernel_state = state;
+void syscall_init(const GlobalState *state) {
+    global_state = state;
 }
 
 int64_t syscall_nop(uint64_t arg) {
