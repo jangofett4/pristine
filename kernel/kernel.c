@@ -52,6 +52,8 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC_SILENT();
     }
 
+    cpu_state.self = (uintptr_t)&cpu_state;
+
     arena_reset();
 
     bootinfo_init(&global_state.bootinfo, bootinfo_addr);
@@ -274,6 +276,7 @@ void kmain(uint64_t bootinfo_addr) {
     memset(hello_pml4_hhdm, 0, VMM_DEFAULT_PAGE_SIZE);
     Process hello_process = {
         .pml4 = hello_pml4_hhdm,
+        .state = PROCESS_NOT_STARTED
     };
 
     Elf64Ehdr hello_file_hdr;
@@ -310,6 +313,7 @@ void kmain(uint64_t bootinfo_addr) {
     
     printf_("hello.elf Entry: 0x%016x\n", hello_file_hdr.e_entry);
 
+    hello_process.state = PROCESS_RUNNING;
     process_start_trampoline(&hello_process);
 
     vmm_destroy(hello_pml4_hhdm);

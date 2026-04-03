@@ -12,9 +12,11 @@ void _start() {
     __asm__ volatile (
         "syscall"
         :
-        : "a"(60), "D"(0)
-        : "rcx", "r11"
+        : "a"(2), "D"(0)
+        : "rcx", "r11", "memory"
     );
 
+    
+    while(1) __asm__ volatile("pause");
     __builtin_unreachable();
 }

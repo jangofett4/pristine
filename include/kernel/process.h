@@ -19,11 +19,19 @@
 #define PROCESS_USERSPACE_VIRT_STACK_TOP        (PROCESS_USERSPACE_VIRT_TOP - PROCESS_USERSPACE_DEFAULT_KERNEL_STACK_SIZE - 0x1000)
 #define PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP (PROCESS_USERSPACE_VIRT_TOP)
 
+typedef enum {
+    PROCESS_NOT_STARTED = 0,
+    PROCESS_RUNNING     = 1,
+    PROCESS_WAITING     = 2,
+    PROCESS_DEAD        = 4
+} ProcessState;
+
 typedef struct {
-    uint64_t *pml4;
-    uint64_t  entry;
-    uint64_t  stack_top;
-    uint64_t  kernel_stack_top;
+    uint64_t    *pml4;
+    uint64_t     entry;
+    uint64_t     stack_top;
+    uint64_t     kernel_stack_top;
+    ProcessState state;
 } Process;
 
 void process_start_trampoline(const Process *process);
