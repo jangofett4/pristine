@@ -8,6 +8,8 @@
 #include <common/io.h>
 #include <common/pic.h>
 
+#include <stddef.h>
+
 void _pic_io_wait() {
     io_outb(0x80, 0x00);
 }
@@ -34,6 +36,12 @@ void pic_mask_irq(uint8_t irq) {
     uint16_t port = irq < 8 ? PIC_MASTER_DATA_PORT : PIC_SLAVE_DATA_PORT;
     uint8_t current_mask = io_inb(port);
     io_outb(port, current_mask | (1 << (irq % 8)));
+}
+
+void pic_mask_all(void) {
+    for (size_t i = 0; i < 16; i++) {
+        pic_mask_irq(i);        
+    }
 }
 
 void pic_unmask_irq(uint8_t irq) {

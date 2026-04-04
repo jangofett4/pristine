@@ -17,6 +17,7 @@
 
 void pic_init(void);
 void pic_mask_irq(uint8_t irq);
+void pic_mask_all(void);
 void pic_unmask_irq(uint8_t irq);
 
 extern void pic_isr_32(void);

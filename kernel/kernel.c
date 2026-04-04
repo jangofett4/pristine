@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <kernel/pit.h>
 #include <kernel/syscall.h>
 #include <uapi/syscall.h>
 #include <stdint.h>
@@ -58,7 +59,13 @@ void kmain(uint64_t bootinfo_addr) {
 
     bootinfo_init(&global_state.bootinfo, bootinfo_addr);
 
+    // ======== Serial ========
+
+    serial_init(&global_state.serial, 0x3F8);
+    serial_set_default(&global_state.serial);
+
     // ======== IDT64 ========
+
     idt64_disable_interrupts();
     idt64_init(global_state.idt_table);
     idt64_load_idtr(global_state.idt_table, IDT64_VECTOR_COUNT);
@@ -66,15 +73,18 @@ void kmain(uint64_t bootinfo_addr) {
     // ======== PIC ========
 
     pic_init();
-
     idt64_enable_interrupts();
 
-    // pic_unmask_irq(1);
+    // ======== PIT ========
+
+    idt64_set_callback(0x20, pit_timer);
+    pit_init(0, 100);
+
+    // ======== APIC ========
+
+
 
     // ======== Globals ========
-
-    serial_init(&global_state.serial, 0x3F8);
-    serial_set_default(&global_state.serial);
 
     video_init(&global_state.video, &global_state.bootinfo.vesa_vbe_mode_info);
     video_set_default(&global_state.video);
