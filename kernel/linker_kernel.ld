@@ -32,6 +32,18 @@ SECTIONS
         . += 0x1000;
 
         . = ALIGN(4096);
+        __kernel_ist2_guard = .;
+        . += 4096;
+        __kernel_ist2_start = . + 0x1000;
+        . += 0x1000;
+
+        . = ALIGN(4096);
+        __kernel_ist3_guard = .;
+        . += 4096;
+        __kernel_ist3_start = . + 0x1000;
+        . += 0x1000;
+
+        . = ALIGN(4096);
         __kernel_rsp0_guard = .;
         . += 4096;
         __kernel_rsp0_start = . + 0x1000;

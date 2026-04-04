@@ -14,13 +14,19 @@
 #define KERNEL_BASE_VIRT      (KERNEL_BASE_OFFSET + KERNEL_BASE_PHYS)
 
 extern uint8_t __kernel_ist1_start[];
+extern uint8_t __kernel_ist2_start[];
+extern uint8_t __kernel_ist3_start[];
 extern uint8_t __kernel_rsp0_start[];
 extern uint8_t __kernel_stack_start[];
 
 extern uint8_t __kernel_stack_guard[];
 extern uint8_t __kernel_rsp0_guard[];
+extern uint8_t __kernel_ist3_guard[];
+extern uint8_t __kernel_ist2_guard[];
 extern uint8_t __kernel_ist1_guard[];
 
 #define KERNEL_STACK_SIZE (0x1000 * 4)
 #define KERNEL_RSP0_SIZE  (0x1000 * 1)
 #define KERNEL_IST1_SIZE  (0x1000 * 1)
+#define KERNEL_IST2_SIZE  (0x1000 * 1)
+#define KERNEL_IST3_SIZE  (0x1000 * 1)

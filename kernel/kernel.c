@@ -133,9 +133,13 @@ void kmain(uint64_t bootinfo_addr) {
     
     cpu_state.tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
     cpu_state.tss[0].ist1 = (uint64_t)__kernel_ist1_start;
+    cpu_state.tss[0].ist2 = (uint64_t)__kernel_ist2_start;
+    cpu_state.tss[0].ist3 = (uint64_t)__kernel_ist3_start;
 
     printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
     printf_("TSS.IST1 %p\n", __kernel_ist1_start);
+    printf_("TSS.IST2 %p\n", __kernel_ist2_start);
+    printf_("TSS.IST3 %p\n", __kernel_ist3_start);
 
     // gdt[0] -> null (offset 0)
     // gdt[1] -> kernel code (offset 0x08)
@@ -200,9 +204,23 @@ void kmain(uint64_t bootinfo_addr) {
         vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
+    for (uintptr_t i = 0; i < KERNEL_IST2_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
+        const uintptr_t addr = (uintptr_t)__kernel_ist2_start - KERNEL_IST2_SIZE + i;
+        vmm_unmap(vmm_pml4, addr);
+        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+    }
+
+    for (uintptr_t i = 0; i < KERNEL_IST3_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
+        const uintptr_t addr = (uintptr_t)__kernel_ist3_start - KERNEL_IST3_SIZE + i;
+        vmm_unmap(vmm_pml4, addr);
+        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+    }
+
     vmm_unmap(vmm_pml4, (uintptr_t)__kernel_stack_guard);
     vmm_unmap(vmm_pml4, (uintptr_t)__kernel_rsp0_guard);
     vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist1_guard);
+    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist2_guard);
+    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist3_guard);
 
     idt64_disable_interrupts();
     vmm_switch(vmm_pml4);

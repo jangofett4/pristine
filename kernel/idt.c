@@ -19,13 +19,13 @@ void idt64_init(IDT64Entry *idt_table) {
     memset(idt_table, 0, sizeof(IDT64Entry) * IDT64_VECTOR_COUNT);
     idt64_set_gate(idt_table,  0, (uint64_t)idt64_isr_0,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table,  1, (uint64_t)idt64_isr_1,  IDT64_ISR_TRAP,      0);
-    idt64_set_gate(idt_table,  2, (uint64_t)idt64_isr_2,  IDT64_ISR_INTERRUPT, 0);
+    idt64_set_gate(idt_table,  2, (uint64_t)idt64_isr_2,  IDT64_ISR_INTERRUPT, 1);
     idt64_set_gate(idt_table,  3, (uint64_t)idt64_isr_3,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table,  4, (uint64_t)idt64_isr_4,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table,  5, (uint64_t)idt64_isr_5,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table,  6, (uint64_t)idt64_isr_6,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table,  7, (uint64_t)idt64_isr_7,  IDT64_ISR_TRAP,      0);
-    idt64_set_gate(idt_table,  8, (uint64_t)idt64_isr_8,  IDT64_ISR_TRAP,      0);
+    idt64_set_gate(idt_table,  8, (uint64_t)idt64_isr_8,  IDT64_ISR_TRAP,      2);
     idt64_set_gate(idt_table,  9, (uint64_t)idt64_isr_9,  IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table, 10, (uint64_t)idt64_isr_10, IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table, 11, (uint64_t)idt64_isr_11, IDT64_ISR_TRAP,      0);
@@ -35,7 +35,7 @@ void idt64_init(IDT64Entry *idt_table) {
     idt64_set_gate(idt_table, 15, (uint64_t)idt64_isr_15, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 16, (uint64_t)idt64_isr_16, IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table, 17, (uint64_t)idt64_isr_17, IDT64_ISR_TRAP,      0);
-    idt64_set_gate(idt_table, 18, (uint64_t)idt64_isr_18, IDT64_ISR_TRAP,      0);
+    idt64_set_gate(idt_table, 18, (uint64_t)idt64_isr_18, IDT64_ISR_TRAP,      3);
     idt64_set_gate(idt_table, 19, (uint64_t)idt64_isr_19, IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table, 20, (uint64_t)idt64_isr_20, IDT64_ISR_TRAP,      0);
     idt64_set_gate(idt_table, 21, (uint64_t)idt64_isr_21, IDT64_ISR_TRAP,      0);
