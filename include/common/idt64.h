@@ -5,16 +5,21 @@
 
 #pragma once
 
+#include <common/regs64.h>
+
 #include <stdint.h>
 #include <stddef.h>
 
-#define IDT64_SIZE 48
+#define IDT64_VECTOR_COUNT 256
+
+#define IDT64_ATTR_INTERRUPT  0x8E
+#define IDT64_ATTR_TRAP       0x8F
 
 typedef struct {
     uint16_t offset1;   // bits 0-15 of handler address
     uint16_t segment;   // code segment selector (0x08)
     struct {
-        uint8_t ist      : 4;
+        uint8_t index    : 4;
         uint8_t reserved : 4;
     } ist;
     uint8_t  attr;      // gate type, DPL, present bit
@@ -26,62 +31,43 @@ typedef struct {
 typedef struct {
     uint16_t limit;     // size of IDT - 1
     uint64_t base;      // address of IDT
-} __attribute__((packed)) IDT64Ptr;
+} __attribute__((packed)) IDT64Descriptor;
 
 typedef struct {
-    uint64_t rax;
-    uint64_t rbx;
-    uint64_t rcx;
-    uint64_t rdx;
-    uint64_t rsi;
-    uint64_t rdi;
-    uint64_t rbp;
-    uint64_t r8;
-    uint64_t r9;
-    uint64_t r10;
-    uint64_t r11;
-    uint64_t r12;
-    uint64_t r13;
-    uint64_t r14;
-    uint64_t r15;
-    uint64_t int_no;
-    uint64_t err_code;
     uint64_t rip;
     uint64_t cs;
     uint64_t rflags;
     uint64_t rsp;
     uint64_t ss;
-} __attribute__((packed)) IDT64ISRFrame;
+} __attribute__((packed)) IretFrame;
+
+typedef struct {
+    Registers64 registers;  // Saved by software stub
+    uint64_t    int_no;     // Pushed by stub
+    uint64_t    err_code;   // Pushed by CPU or stub (dummy)
+    IretFrame   iret_frame; // Pushed by CPU
+} __attribute__((packed)) InterruptFrame;
 
 typedef enum {
   IDT64_ISR_INTERRUPT,
   IDT64_ISR_TRAP  
-} IDT64ISRHandlerType;
+} IDT64GateType;
 
 typedef struct {
-    IDT64ISRHandlerType type;
+    IDT64GateType type;
     void (*handler)(void);
     uint8_t ist;
-} IDT64ISRHandler;
+} IDT64EntryConfig;
 
-typedef void (*IDT64ISRDispatch)(IDT64ISRFrame *frame);
+typedef void (*IDT64Callback)(void);
 
-#define IDT64_ISR_I(i, istidx) {.type=IDT64_ISR_INTERRUPT,.handler=idt64_isr_##i, .ist = istidx}
-#define IDT64_ISR_T(i, istidx) {.type=IDT64_ISR_TRAP,.handler=idt64_isr_##i, .ist = istidx}
-
-#define IDT64_IDT_ATTR_INTERRUPT  0x8E
-#define IDT64_IDT_ATTR_TRAP       0x8F
-
-void idt64_init(void);
-void idt64_reload_idtr(void);
-void idt64_load_idtr(IDT64Ptr *idt_ptr);
-void idt64_set_entry_int(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist);
-void idt64_set_entry_trap(IDT64Entry *idt_table, uint32_t index, uint64_t handler, uint8_t ist);
-void idt64_set_entries(IDT64Entry *entries, IDT64ISRHandler *handlers, size_t size);
+void idt64_init(IDT64Entry *idt_table);
+void idt64_load_idtr(IDT64Entry *entries, size_t count) ;
+void idt64_set_gate(IDT64Entry *idt_table, uint32_t index, uint64_t handler, IDT64GateType type, uint8_t ist);
 void idt64_enable_interrupts(void);
 void idt64_disable_interrupts(void);
-void idt64_debug_print_frame(IDT64ISRFrame *frame);
-void idt64_set_dispatch(uint8_t vector, IDT64ISRDispatch handler);
+void idt64_debug_print_frame(InterruptFrame *frame);
+void idt64_set_callback(uint8_t vector, IDT64Callback callback);
 
 extern void idt64_isr_0(void);
 extern void idt64_isr_1(void);

@@ -60,8 +60,8 @@ void kmain(uint64_t bootinfo_addr) {
 
     // ======== IDT64 ========
     idt64_disable_interrupts();
-    idt64_init();
-    idt64_reload_idtr();
+    idt64_init(global_state.idt_table);
+    idt64_load_idtr(global_state.idt_table, IDT64_VECTOR_COUNT);
 
     // ======== PIC ========
 

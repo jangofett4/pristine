@@ -1,8 +1,8 @@
 ; Pristine
-; interrupt: common ISR handler definitions
+; interrupt: ISR stubs
 ; SPDX-License-Identifier: MIT
 
-extern idt64_isr_handler
+extern idt64_isr_dispatch
 
 %macro ISR_NOERR 1
 global idt64_isr_%1
@@ -44,7 +44,7 @@ isr_common:
     push r14
     push r15
     mov rdi, rsp ; System V ABI frame pointer
-    call idt64_isr_handler
+    call idt64_isr_dispatch
     pop r15
     pop r14
     pop r13
@@ -62,15 +62,6 @@ isr_common:
     pop rax
     add rsp, 16 ; clean up error code + interrupt number pushed by stub
     iretq
-
-global isr_default
-isr_default:
-    iret
-
-global idt64_load_idtr
-idt64_load_idtr:
-    lidt [rdi]
-    ret
 
 ISR_NOERR 0
 ISR_NOERR 1

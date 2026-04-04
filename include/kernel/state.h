@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <common/idt64.h>
 #include <kernel/process.h>
 #include <common/bootinfo.h>
 #include <common/bsfs/bsfs.h>
@@ -25,6 +26,7 @@ typedef struct {
 
     uint8_t       *memory_bitmap;
     uint64_t      system_memory;
+    IDT64Entry    idt_table[IDT64_VECTOR_COUNT];
 } GlobalState;
 
 typedef struct {
