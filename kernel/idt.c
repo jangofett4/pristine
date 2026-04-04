@@ -85,7 +85,7 @@ void idt64_set_gate(IDT64Entry *idt_table, uint32_t index, uint64_t handler, IDT
     idt_table[index].segment = 0x08;
     idt_table[index].ist.index = ist;
     idt_table[index].ist.reserved = 0;
-    idt_table[index].attr = type;
+    idt_table[index].attr = type == IDT64_ISR_INTERRUPT ? 0x8E : 0x8F;
     idt_table[index].offset2 = (handler >> 16) & 0xFFFF;
     idt_table[index].offset3 = (handler >> 32) & 0xFFFFFFFF;
 }
