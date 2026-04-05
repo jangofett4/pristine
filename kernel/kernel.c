@@ -168,12 +168,12 @@ void kmain(uint64_t bootinfo_addr) {
         bitmap_set(global_state.memory_bitmap, i / VMM_DEFAULT_PAGE_SIZE);
     }
 
-    vmm_init();
+    global_state.pml4 = vmm_init();
 
     // HHDM
     for (size_t i = 0; i < 512; i++) {
         vmm_map_huge(
-            vmm_pml4, 
+            global_state.pml4, 
             i * VMM_HUGE_PAGE_SIZE, 
             PMM_HHDM_START + (i * VMM_HUGE_PAGE_SIZE), 
             VMM_FLAGS_KERNEL_CODE
@@ -183,7 +183,7 @@ void kmain(uint64_t bootinfo_addr) {
     // Kernel
     for (uint64_t off = 0; off < 0x200000; off += VMM_DEFAULT_PAGE_SIZE) {
         vmm_map(
-            vmm_pml4,
+            global_state.pml4,
             KERNEL_BASE_PHYS + off,
             KERNEL_BASE_VIRT + off,
             VMM_FLAGS_KERNEL_CODE
@@ -191,49 +191,49 @@ void kmain(uint64_t bootinfo_addr) {
     }
 
     // GDT and TSS
-    // vmm_map(__vmm_pml4, virt_to_phys(__global_gdt), (uint64_t)__global_gdt, VMM_FLAGS_KERNEL_DATA);
-    // vmm_map(__vmm_pml4, virt_to_phys(__global_tss), (uint64_t)__global_tss, VMM_FLAGS_KERNEL_DATA);
+    // vmm_map(__global_state.pml4, virt_to_phys(__global_gdt), (uint64_t)__global_gdt, VMM_FLAGS_KERNEL_DATA);
+    // vmm_map(__global_state.pml4, virt_to_phys(__global_tss), (uint64_t)__global_tss, VMM_FLAGS_KERNEL_DATA);
 
     // Stack, RSP0, IST1
 
     for (uintptr_t i = 0; i < KERNEL_STACK_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
         const uintptr_t addr = (uintptr_t)__kernel_stack_start - KERNEL_STACK_SIZE + i;
-        vmm_unmap(vmm_pml4, addr);
-        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+        vmm_unmap(global_state.pml4, addr);
+        vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_RSP0_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
         const uintptr_t addr = (uintptr_t)__kernel_rsp0_start - KERNEL_RSP0_SIZE + i;
-        vmm_unmap(vmm_pml4, addr);
-        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+        vmm_unmap(global_state.pml4, addr);
+        vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST1_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
         const uintptr_t addr = (uintptr_t)__kernel_ist1_start - KERNEL_IST1_SIZE + i;
-        vmm_unmap(vmm_pml4, addr);
-        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+        vmm_unmap(global_state.pml4, addr);
+        vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST2_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
         const uintptr_t addr = (uintptr_t)__kernel_ist2_start - KERNEL_IST2_SIZE + i;
-        vmm_unmap(vmm_pml4, addr);
-        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+        vmm_unmap(global_state.pml4, addr);
+        vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST3_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
         const uintptr_t addr = (uintptr_t)__kernel_ist3_start - KERNEL_IST3_SIZE + i;
-        vmm_unmap(vmm_pml4, addr);
-        vmm_map(vmm_pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
+        vmm_unmap(global_state.pml4, addr);
+        vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
-    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_stack_guard);
-    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_rsp0_guard);
-    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist1_guard);
-    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist2_guard);
-    vmm_unmap(vmm_pml4, (uintptr_t)__kernel_ist3_guard);
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_stack_guard);
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_rsp0_guard);
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_ist1_guard);
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_ist2_guard);
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_ist3_guard);
 
     idt64_disable_interrupts();
-    vmm_switch(vmm_pml4);
+    vmm_switch(global_state.pml4);
     idt64_enable_interrupts();
 
     // ======== Syscall ========
@@ -331,8 +331,8 @@ void kmain(uint64_t bootinfo_addr) {
     hello_process.kernel_stack_top = PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP;
 
     // "Copy" over HHDM & kernel mapping
-    hello_pml4_hhdm[256] = vmm_pml4[256];
-    hello_pml4_hhdm[511] = vmm_pml4[511];
+    hello_pml4_hhdm[256] = global_state.pml4[256];
+    hello_pml4_hhdm[511] = global_state.pml4[511];
 
     // Setup "context switch"
     cpu_state.kernel_stack_top = hello_process.kernel_stack_top;
