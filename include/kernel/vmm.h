@@ -19,6 +19,8 @@
 #define VMM_PD_IDX(addr)   (((addr) >> 21) & 0x1FF)
 #define VMM_PT_IDX(addr)   (((addr) >> 12) & 0x1FF)
 
+#define VMM_FLAGS_NO_CACHE     0x10
+
 #define VMM_FLAGS_KERNEL_CODE  0x03                   // P + R/W, no NX
 #define VMM_FLAGS_KERNEL_DATA  (0x03 | (1ULL << 63))  // P + R/W + NX
 

@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <kernel/pit.h>
-#include <kernel/syscall.h>
-#include <uapi/syscall.h>
 #include <stdint.h>
 
 #include <pristine.h>
@@ -18,6 +15,9 @@
 #include <kernel/vmm.h>
 #include <kernel/process.h>
 #include <kernel/msr.h>
+#include <kernel/pit.h>
+#include <kernel/lapic.h>
+#include <kernel/syscall.h>
 #include <common/crc32.h>
 #include <common/elf.h>
 #include <common/memmap.h>
@@ -40,10 +40,18 @@
 #include <drivers/storage/ata/atapio.h>
 #include <drivers/video/video.h>
 
+#include <uapi/syscall.h>
+
 #include <printf.h>
 
 GlobalState global_state;
 CpuState cpu_state;
+
+void lapic_timer(void) {
+    printf_("lapic timer hit\n");
+    printf_("current count: %u\n", lapic_read_register(cpu_state.lapic, LAPIC_REG_CURRENT_COUNT_OFFSET));
+    lapic_eoi(cpu_state.lapic);
+}
 
 void kmain(uint64_t bootinfo_addr) {
     // verify we're running where we think we are
@@ -54,6 +62,7 @@ void kmain(uint64_t bootinfo_addr) {
     }
 
     cpu_state.self = (uintptr_t)&cpu_state;
+    cpu_state.id = 0;
 
     arena_reset();
 
@@ -73,16 +82,8 @@ void kmain(uint64_t bootinfo_addr) {
     // ======== PIC ========
 
     pic_init();
+    pic_mask_all();
     idt64_enable_interrupts();
-
-    // ======== PIT ========
-
-    idt64_set_callback(0x20, pit_timer);
-    pit_init(0, 100);
-
-    // ======== APIC ========
-
-
 
     // ======== Globals ========
 
@@ -235,6 +236,20 @@ void kmain(uint64_t bootinfo_addr) {
     idt64_disable_interrupts();
     vmm_switch(global_state.pml4);
     idt64_enable_interrupts();
+
+    // ======== PIT ========
+
+    idt64_set_callback(0x20, pit_timer);
+    pit_init(0, 100);
+    // pic_unmask_irq(0);
+
+    // ======== LAPIC ========
+
+    lapic_init(&global_state, &cpu_state);
+    lapic_enable_svr(cpu_state.lapic, 0xFF);
+    lapic_timer_init(cpu_state.lapic, 0xFF, false, LAPIC_TIMER_MODE_PERIODIC, LAPIC_TIMER_DIV_16);
+    // idt64_set_callback(0xFF, lapic_timer);
+    // lapic_timer_set_counter(cpu_state.lapic, 1000); // Enable LAPIC Timer
 
     // ======== Syscall ========
 

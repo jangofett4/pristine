@@ -35,9 +35,11 @@ typedef struct {
     uint64_t       kernel_stack_top;
     uint64_t       user_stack_rsp;
     Process        *current_process;
+    uint64_t       id;
 
     uint64_t       *gdt;
     TSSEntry       *tss;
+    void           *lapic;
 } CpuState;
 
 _Static_assert(offsetof(CpuState, self)             == 0x00, "CpuState.self at wrong offset");

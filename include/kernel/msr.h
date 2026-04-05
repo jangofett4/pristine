@@ -18,5 +18,7 @@
 #define MSR_REG_GSBASE       0xC0000101
 #define MSR_REG_KERNELGSBASE 0xC0000102
 
+#define MSR_REG_LAPIC_BASE   0x1B
+
 uint64_t rdmsr(uint32_t msr);
 void wrmsr(uint32_t msr, uint64_t value);
