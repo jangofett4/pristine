@@ -17,4 +17,3 @@
 #define PIT_PORT_COMMAND  0x43
 
 void pit_init(uint8_t channel, uint16_t hz);
-void pit_timer(void);

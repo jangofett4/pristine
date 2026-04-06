@@ -105,3 +105,10 @@ static inline void lapic_timer_init(void *lapic, const uint8_t vector, const boo
 static inline uint32_t lapic_get_timer_counter(void *lapic) {
     return lapic_read_register(lapic, LAPIC_REG_CURRENT_COUNT_OFFSET);
 }
+
+// Defines when calibration timer hits what milliseconds
+// will be used to determine LAPIC Timer speed
+#define LAPIC_TIMER_CALIBRATION_BASE    10
+#define LAPIC_TIMER_CALIBRATION_SAMPLES 10
+
+void lapic_timer_calibrate(void);

@@ -237,20 +237,6 @@ void kmain(uint64_t bootinfo_addr) {
     vmm_switch(global_state.pml4);
     idt64_enable_interrupts();
 
-    // ======== PIT ========
-
-    idt64_set_callback(0x20, pit_timer);
-    pit_init(0, 100);
-    // pic_unmask_irq(0);
-
-    // ======== LAPIC ========
-
-    lapic_init(&global_state, &cpu_state);
-    lapic_enable_svr(cpu_state.lapic, 0xFF);
-    lapic_timer_init(cpu_state.lapic, 0xFF, false, LAPIC_TIMER_MODE_PERIODIC, LAPIC_TIMER_DIV_16);
-    // idt64_set_callback(0xFF, lapic_timer);
-    // lapic_timer_set_counter(cpu_state.lapic, 1000); // Enable LAPIC Timer
-
     // ======== Syscall ========
 
     uint64_t msr_star = ((0x10ULL << 48) | (0x08ULL << 32)) & (0xFFFFFFFF00000000);
@@ -264,6 +250,38 @@ void kmain(uint64_t bootinfo_addr) {
     wrmsr(MSR_REG_KERNELGSBASE, 0);
 
     syscall_init(&global_state);
+
+    // ======== LAPIC & PIT ========
+
+    // LAPIC timer is running at a speed we don't know yet. So, to 
+    // "calibrate" it we wan't to check its current counter after a
+    // known time period. That way we can determine how fast it runs
+
+    lapic_init(&global_state, &cpu_state);
+    lapic_enable_svr(cpu_state.lapic, 0xFF);
+    lapic_timer_init(
+        cpu_state.lapic,
+        0xFF,
+        true,
+        LAPIC_TIMER_MODE_ONESHOT,
+        LAPIC_TIMER_DIV_16
+    );
+    lapic_timer_set_counter(cpu_state.lapic, UINT32_MAX); // Enable LAPIC Timer
+
+    idt64_set_callback(0x20, lapic_timer_calibrate);
+    pit_init(0, 100);
+    pic_unmask_irq(0);
+
+    while (!cpu_state.lapic_calibrated);
+
+    pic_mask_all();
+    idt64_set_callback(0x20, 0);
+    lapic_timer_set_counter(cpu_state.lapic, 0);
+
+    // Now we know how fast is LAPIC timer in terms of how many counters
+    // it ticked in a (roughly) 10 ms window
+
+    printf_("LAPIC: %u per 10ms\n", cpu_state.lapic_timer_speed);
 
     // ======== BSFS ========
 

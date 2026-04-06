@@ -40,6 +40,9 @@ typedef struct {
     uint64_t       *gdt;
     TSSEntry       *tss;
     void           *lapic;
+    volatile bool  lapic_calibrated;
+    uint32_t       lapic_timer_speed;
+    uint32_t       lapic_samples;
 } CpuState;
 
 _Static_assert(offsetof(CpuState, self)             == 0x00, "CpuState.self at wrong offset");

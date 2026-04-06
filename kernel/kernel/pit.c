@@ -7,7 +7,7 @@
 // PIT will be used to calibrate APIC timer
 // For this reason, PIT will be kept simple
 
-#include "common/io.h"
+#include <common/io.h>
 #include <printf.h>
 #include <kernel/pit.h>
 
@@ -18,8 +18,4 @@ void pit_init(uint8_t channel, uint16_t hz) {
     const uint16_t final_divisor = PIT_CLOCK_RATE / hz;
     io_outb(channel, final_divisor & 0xFF);
     io_outb(channel, final_divisor >> 8);
-}
-
-void pit_timer() {
-    printf_("PIT Timer Tick");
 }
