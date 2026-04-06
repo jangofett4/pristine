@@ -49,7 +49,7 @@ void idt64_init(IDT64Entry *idt_table) {
     idt64_set_gate(idt_table, 29, (uint64_t)idt64_isr_29, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 30, (uint64_t)idt64_isr_30, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 31, (uint64_t)idt64_isr_31, IDT64_ISR_INTERRUPT, 0);
-    idt64_set_gate(idt_table, 32, (uint64_t)idt64_isr_31, IDT64_ISR_INTERRUPT, 0);
+    idt64_set_gate(idt_table, 32, (uint64_t)idt64_isr_32, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 33, (uint64_t)idt64_isr_33, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 34, (uint64_t)idt64_isr_34, IDT64_ISR_INTERRUPT, 0);
     idt64_set_gate(idt_table, 35, (uint64_t)idt64_isr_35, IDT64_ISR_INTERRUPT, 0);
