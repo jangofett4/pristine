@@ -5,7 +5,7 @@
 
 #pragma once
 
-#define MMIO_VIRT_START       0xFFFFFFFF00000000
+#define MMIO_VIRT_START       0xFFFF910000000000
 
 // Each LAPIC register table is 1024 bytes in size, we can map 4096 size pages
 
