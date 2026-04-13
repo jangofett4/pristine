@@ -15,5 +15,5 @@ typedef int64_t (*SyscallHandler)(uint64_t arg);
 
 extern SyscallHandler syscall_table[];
 
-void syscall_init(const GlobalState *state);
+void syscall_init(void);
 extern void syscall_stub(void);

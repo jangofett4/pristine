@@ -58,3 +58,9 @@ static inline CpuState *get_cpu_state() {
     );
     return state;
 }
+
+extern GlobalState global_state;
+
+static inline GlobalState *get_global_state() {
+    return &global_state;
+}

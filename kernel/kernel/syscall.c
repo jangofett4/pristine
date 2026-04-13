@@ -8,10 +8,7 @@
 #include <kernel/process.h>
 #include <kernel/syscall.h>
 
-static const GlobalState *global_state;
-
-void syscall_init(const GlobalState *state) {
-    global_state = state;
+void syscall_init(void) {
 }
 
 int64_t syscall_nop(uint64_t arg) {
