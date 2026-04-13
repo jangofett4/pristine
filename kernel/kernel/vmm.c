@@ -107,9 +107,9 @@ void vmm_unmap(uint64_t *pml4, uint64_t virt) {
     if (table_ptr[ptidx] == 0)
         KPANIC("vmm_unmap: mapping for 0x%lx doesn't exist", virt);
     if (table_ptr[pdptidx] & VMM_LARGE_PAGE_SIZE)
-        KPANIC("vmm_unmap_huge: mapping for 0x%lx is mapped as large", virt);
+        KPANIC("vmm_unmap: mapping for 0x%lx is mapped as large", virt);
     if (table_ptr[pdptidx] & VMM_HUGE_PAGE_SIZE)
-        KPANIC("vmm_unmap_huge: mapping for 0x%lx is mapped as huge", virt);
+        KPANIC("vmm_unmap: mapping for 0x%lx is mapped as huge", virt);
     #endif
 
     table_ptr[ptidx] = 0;
@@ -152,7 +152,7 @@ void vmm_map_large(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags)
     } else {
         #ifdef PRISTINE_DEBUG
         if (table_ptr[pdptidx] & VMM_PD_LARGE_FLAGS)  // PS bit set = huge/large page, not a table
-            KPANIC("vmm_map: tried to map through existing huge page at virt 0x%lx", virt);
+            KPANIC("vmm_map_large: tried to map through existing huge page at virt 0x%lx", virt);
         #endif
         table_ptr = phys_to_virt(table_ptr[pdptidx] & VMM_PTE_ADDR_MASK);
     }
@@ -193,7 +193,7 @@ void vmm_unmap_large(uint64_t *pml4, uint64_t virt) {
     if (table_ptr[pdidx] == 0)
         KPANIC("vmm_unmap_large: mapping for 0x%lx doesn't exist", virt);
     if (!(table_ptr[pdptidx] & VMM_PD_LARGE_FLAGS))
-        KPANIC("vmm_unmap_huge: mapping for 0x%lx is not mapped as huge", virt);
+        KPANIC("vmm_unmap_large: mapping for 0x%lx is not mapped as huge", virt);
     #endif
 
     table_ptr[pdidx] = 0;
