@@ -122,11 +122,10 @@ bool bin_free(void *addr) {
 
     BinHeader *bin = bins + slab->bin;
 
-    #if PRISTINE_DEBUG
-    if (!is_aligned((uint64_t)addr, bin->object_size)) {
-        KPANIC("bin_free: virtual %p is not aligned to %u", addr, bin->object_size);
-    }
-    #endif
+    // TODO: alignment check here is removed.
+    //       this makes the bin_alloc much less convoluted, but it also could be
+    //       hard to debug if a moved pointer is passed (bin_free(ptr + 1))
+    //       a proper alignment check needs to be implemented
 
     const bool was_full = slab->count_objects == bin->max_objects;
 
