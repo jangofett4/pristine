@@ -18,6 +18,8 @@
 #include <kernel/pit.h>
 #include <kernel/lapic.h>
 #include <kernel/syscall.h>
+#include <kernel/slab.h>
+#include <kernel/kmalloc.h>
 #include <common/crc32.h>
 #include <common/elf.h>
 #include <common/memmap.h>
@@ -312,76 +314,25 @@ void kmain(uint64_t bootinfo_addr) {
 
     printf_("BSFS Version %x\n", global_state.bsfs_header.version);
 
-    BsfsInode hello_inode;
-    BsfsFile hello_file = {
-        .inode = &hello_inode,
-        .buf = (uint8_t*)arena_alloc(global_state.bsfs_header.block_size, 1),
-        .bufsize = global_state.bsfs_header.block_size,
-        .l1_table = (uint32_t*)arena_alloc(global_state.bsfs_header.block_size, 1)
-    };
-    int read = 0;
-    if ((read = bsfs_fopen(&global_state.bsfs_context, "/bin/hello.elf", &hello_file)) < 0) {
-        const char* err = bsfs_strerror(read);
-        KPANIC("kernel: cannot open hello.elf: %s", err);
-    }
-    
-    if ((read = bsfs_verify_checksum(&global_state.bsfs_context, &hello_file, (uint8_t*)arena_alloc(512, 1), 512)) < 0) {
-        const char* err = bsfs_strerror(read);
-        KPANIC("kernel: bsfs_verify_checksum failed: %s", err);
-    }
-
-    bsfs_fseeko(&global_state.bsfs_context, &hello_file, 0, BSFS_FSEEKO_SET);
-
-    uint64_t  hello_pml4_phys = pmm_alloc();
-    uint64_t *hello_pml4_hhdm = phys_to_virt(hello_pml4_phys);
-    memset(hello_pml4_hhdm, 0, VMM_DEFAULT_PAGE_SIZE);
-    Process hello_process = {
-        .pml4 = hello_pml4_hhdm,
-        .state = PROCESS_NOT_STARTED
+    static uint16_t bins[] = {
+        8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024
     };
 
-    Elf64Ehdr hello_file_hdr;
-    elf64_load_executable(&global_state.bsfs_context, &hello_file, hello_pml4_hhdm, &hello_file_hdr);
-    
-    // Userspace stack allocation
-    size_t num_process_stack_pages = PROCESS_USERSPACE_DEFAULT_STACK_SIZE / VMM_DEFAULT_PAGE_SIZE;
-    for (size_t i = 1; i <= num_process_stack_pages; i++) {
-        uint64_t phys_page = pmm_alloc();
-        uint64_t virt_addr = PROCESS_USERSPACE_VIRT_STACK_TOP - (i * VMM_DEFAULT_PAGE_SIZE);
-        vmm_map(hello_pml4_hhdm, phys_page, virt_addr, VMM_FLAGS_USER_DATA);
+    static uintptr_t addr[1024 * 128];
+
+    printf_("Testing binning slab allocator...\n");
+    for (size_t i = 0; i < 24; i++) {
+        for (size_t a = 0; a < sizeof(addr) / sizeof(addr[0]); a++) {
+            void *x = kmalloc(bins[i]);
+            *(int*)x = a;
+            addr[a] = (uintptr_t)x;
+        }
+        for (size_t a = 0; a < sizeof(addr) / sizeof(addr[0]); a++) {
+            kfree((void*)addr[a]);
+        }
+        printf_("Bin %4u passed\n", bins[i]);
     }
-
-    // Dedicated kernel stack allocation
-    size_t num_process_kernel_stack_pages = PROCESS_USERSPACE_DEFAULT_KERNEL_STACK_SIZE / VMM_DEFAULT_PAGE_SIZE;
-    for (size_t i = 1; i <= num_process_kernel_stack_pages; i++) {
-        uint64_t phys_page = pmm_alloc();
-        uint64_t virt_addr = PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP - (i * VMM_DEFAULT_PAGE_SIZE);
-        vmm_map(hello_pml4_hhdm, phys_page, virt_addr, VMM_FLAGS_KERNEL_DATA);
-    }
-
-    hello_process.entry = hello_file_hdr.e_entry;
-    hello_process.stack_top = PROCESS_USERSPACE_VIRT_STACK_TOP;
-    hello_process.kernel_stack_top = PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP;
-
-    // "Copy" over HHDM & kernel mapping
-    hello_pml4_hhdm[256] = global_state.pml4[256];
-    hello_pml4_hhdm[511] = global_state.pml4[511];
-
-    // Setup "context switch"
-    cpu_state.kernel_stack_top = hello_process.kernel_stack_top;
-    cpu_state.user_stack_rsp = hello_process.stack_top;
-    cpu_state.current_process = &hello_process;
-    
-    printf_("hello.elf Entry: 0x%016x\n", hello_file_hdr.e_entry);
-
-    hello_process.state = PROCESS_RUNNING;
-    process_start_trampoline(&hello_process);
-
-    vmm_destroy(hello_pml4_hhdm);
-    pmm_free(hello_pml4_phys);
-    arena_reset();
-
-    printf_("We good.\n");
+    printf_("Test success...\n");
 
     while(1);
 }

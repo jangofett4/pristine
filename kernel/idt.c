@@ -282,9 +282,9 @@ void idt64_load_idtr(IDT64Entry *idt_table, size_t count) {
     };
     
     __asm__ volatile(
-        "lidt (%0)"
+        "lidt %0"
         :
-        : "r"(&idt_ptr)
+        : "m"(idt_ptr)
     );
 }
 

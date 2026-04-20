@@ -38,7 +38,7 @@ void gdt_load_gdtr(uint64_t volatile *gdt, uint16_t count) {
         .base = (uintptr_t)gdt,
         .limit = (count * sizeof(uint64_t)) - 1
     };
-    __asm__ volatile ("lgdt (%0)" : : "r"(&ptr) : "memory");
+    __asm__ volatile ("lgdt %0" : : "m"(ptr) : "memory");
 }
 
 void gdt_load_tss(uint16_t selector) {
