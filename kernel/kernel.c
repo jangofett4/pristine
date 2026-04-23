@@ -331,30 +331,30 @@ void kmain(uint64_t bootinfo_addr) {
     cpu_state.scheduler_next = 0;
 
     Process *other_process1          = kmalloc(sizeof(Process));
-    other_process1->state            = PROCESS_READY;
-    other_process1->entry            = (uintptr_t)&kernel_other_process1;
-    other_process1->pml4             = global_state.pml4;
-    other_process1->pid              = 1;
-    other_process1->stack_top        = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
-    other_process1->kernel_stack_top = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
-    other_process1->context.cs       = 0x08;
-    other_process1->context.ss       = 0x10;
-    other_process1->context.rip      = other_process1->entry;
-    other_process1->context.rsp      = other_process1->stack_top;
-    other_process1->context.rflags   = 0x200;
+    process_create(
+        other_process1,
+        1,
+        (uintptr_t)kernel_other_process1,
+        0x08, 0x10, 0x200,
+        PROCESS_VIRT_STACK_TOP,
+        PROCESS_DEFAULT_STACK_SIZE,
+        PROCESS_VIRT_KERNEL_STACK_TOP,
+        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        global_state.pml4
+    );
 
     Process *other_process2          = kmalloc(sizeof(Process));
-    other_process2->state            = PROCESS_READY;
-    other_process2->entry            = (uintptr_t)&kernel_other_process2;
-    other_process2->pml4             = global_state.pml4;
-    other_process2->pid              = 2;
-    other_process2->stack_top        = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
-    other_process2->kernel_stack_top = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
-    other_process2->context.cs       = 0x08;
-    other_process2->context.ss       = 0x10;
-    other_process2->context.rip      = other_process2->entry;
-    other_process2->context.rsp      = other_process2->stack_top;
-    other_process2->context.rflags   = 0x200;
+    process_create(
+        other_process2,
+        2,
+        (uintptr_t)kernel_other_process2,
+        0x08, 0x10, 0x200,
+        PROCESS_VIRT_STACK_TOP,
+        PROCESS_DEFAULT_STACK_SIZE,
+        PROCESS_VIRT_KERNEL_STACK_TOP,
+        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        global_state.pml4
+    );
 
     scheduler_add_process(other_process1);
     scheduler_add_process(other_process2);

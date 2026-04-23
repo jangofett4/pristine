@@ -15,14 +15,14 @@
 // TODO: Currently userspace apps get a fixed PROCESS_USERSPACE_DEFAULT_STACK_SIZE bytes of stack
 //       An on-demand paging can be implemented to support applications that require more stack
 
-#define PROCESS_USERSPACE_DEFAULT_STACK_SIZE        0x200000    // 2 MiB
-#define PROCESS_USERSPACE_DEFAULT_KERNEL_STACK_SIZE 0x4000      // 16 KiB
+#define PROCESS_DEFAULT_STACK_SIZE        0x200000    // 2 MiB
+#define PROCESS_DEFAULT_KERNEL_STACK_SIZE 0x4000      // 16 KiB
 
-#define PROCESS_USERSPACE_VIRT_TOP              0x00007FFFFFFFF000ULL
+#define PROCESS_VIRT_TOP              0x00007FFFFFFFF000ULL
 
-//                                               v top                        v kernel stack top                            v guard
-#define PROCESS_USERSPACE_VIRT_STACK_TOP        (PROCESS_USERSPACE_VIRT_TOP - PROCESS_USERSPACE_DEFAULT_KERNEL_STACK_SIZE - 0x1000)
-#define PROCESS_USERSPACE_VIRT_KERNEL_STACK_TOP (PROCESS_USERSPACE_VIRT_TOP)
+//                                     v top              v kernel stack top                            v guard
+#define PROCESS_VIRT_STACK_TOP        (PROCESS_VIRT_TOP - PROCESS_DEFAULT_KERNEL_STACK_SIZE - 0x1000)
+#define PROCESS_VIRT_KERNEL_STACK_TOP (PROCESS_VIRT_TOP)
 
 typedef enum {
     PROCESS_READY   = 0,
@@ -55,6 +55,7 @@ typedef struct {
 
 struct Process {
     uint64_t      *pml4;
+    uint64_t       pml4_phys;
     uint32_t       pid;
     uintptr_t      entry;
     uintptr_t      stack_top;
@@ -63,7 +64,8 @@ struct Process {
     ProcessState   state;
 };
 
-typedef struct Process Process;
+bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs, uint64_t ss, uint64_t rflags, uintptr_t stack_top, size_t stack_size, uintptr_t kernel_stack_top, size_t kernel_stack_size, uint64_t* kernel_pml4);
+void process_destroy(Process *process);
 
 static inline void process_save_state(Process *process, const InterruptFrame *frame) {
     process->context.rax = frame->registers.rax;
@@ -92,15 +94,30 @@ __attribute__((noreturn))
 static inline void process_jump(const Process* process) {
     CpuState *cpu_state = get_cpu_state();
     cpu_state->tss->rsp0 = process->kernel_stack_top;
-    vmm_switch(process->pml4);
 
-    // If we are dropping privilege levels, swapgs
-    if (process->context.cs & 0x03) {
-        __asm__ volatile("swapgs");
-    }
+    // We force the compiler to evaluate everything we might need before
+    // the asm block, and leave C side
+    // TODO: Honestly we should probably offload this to a seperate assembly file
+    //       This function is very assembly heavy anyway
+    const uint64_t pml4_phys = process->pml4_phys;
+    const uint64_t cs = process->context.cs;
+    const uintptr_t context_addr = (uintptr_t)&process->context;
+    uint64_t needs_swapgs = (cs & 0x03) ? 1 : 0;
 
     __asm__ volatile (
-        "mov %0, %%rsp\n"
+        // swap address space
+        "mov %0, %%cr3\n"
+        
+        // immediately swap stack pointer to the new context struct
+        "mov %1, %%rsp\n"
+        
+        // handle swapgs if necessary (using the register we prepared)
+        "cmp $1, %2\n"
+        "jne 1f\n"
+        "swapgs\n"
+        "1:\n"
+        
+        // restore General Purpose Registers
         "pop %%rax\n"
         "pop %%rbx\n"
         "pop %%rcx\n"
@@ -116,9 +133,11 @@ static inline void process_jump(const Process* process) {
         "pop %%r13\n"
         "pop %%r14\n"
         "pop %%r15\n"
+        
+        // jump to process
         "iretq"
         : 
-        : "r"(&process->context)
+        : "r"(pml4_phys), "r"(context_addr), "r"(needs_swapgs)
         : "memory"
     );
 
