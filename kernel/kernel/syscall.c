@@ -7,6 +7,7 @@
 #include <kernel/state.h>
 #include <kernel/process.h>
 #include <kernel/syscall.h>
+#include <kernel/scheduler.h>
 
 void syscall_init(void) {
 }
@@ -29,7 +30,8 @@ int64_t syscall_serial_puts(uint64_t arg) {
 int64_t syscall_exit(uint64_t arg) {
     const CpuState * state = get_cpu_state();
     state->current_process->state = PROCESS_DEAD;
-    return SYSCALL_OK;
+    scheduler_loop();
+    __builtin_unreachable();
 }
 
 SyscallHandler syscall_table[] = {
