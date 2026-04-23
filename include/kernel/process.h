@@ -66,7 +66,7 @@ struct Process {
     ProcessState   state;
 };
 
-bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs, uint64_t ss, uint64_t rflags, uintptr_t stack_top, size_t stack_size, uint64_t stack_flags, uintptr_t kernel_stack_top, size_t kernel_stack_size, uint64_t kernel_stack_flags, uint64_t *pml4, uintptr_t pml4_phys, uint64_t *kernel_pml4);
+bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs, uint64_t ss, uint64_t rflags, uintptr_t stack_top, size_t stack_size, uintptr_t kernel_stack_top, size_t kernel_stack_size, uint64_t* kernel_pml4);
 void process_destroy(Process *process);
 
 static inline void process_save_state(Process *process, const InterruptFrame *frame) {
