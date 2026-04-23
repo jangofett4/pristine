@@ -89,6 +89,49 @@ void kmain(uint64_t bootinfo_addr) {
         }
     }
 
+    // ======== PATs ========
+
+    // Ideally we should check if PAT is available and flip feature bits in kernel
+    // However PAT is so old (25~ years or so) its generally available in all CPUs
+    // So, its a safe bet to just use it and don't worry about if we hit an unsupported CPU
+    cpuid_result = cpuid_subleaf(1, 0);
+    if (cpuid_result.edx & CPUID_FEAT_EDX_PAT) {
+        printf_("Page attribute table is available.\n");
+    }
+
+    uint64_t msr_pat = rdmsr(MSR_REG_PAT);
+    uint8_t msr_pat_pa0 = (msr_pat >>  0) & 0xFF;
+    uint8_t msr_pat_pa1 = (msr_pat >>  8) & 0xFF;
+    uint8_t msr_pat_pa2 = (msr_pat >> 16) & 0xFF;
+    uint8_t msr_pat_pa3 = (msr_pat >> 24) & 0xFF;
+    uint8_t msr_pat_pa4 = (msr_pat >> 32) & 0xFF;
+    uint8_t msr_pat_pa5 = (msr_pat >> 40) & 0xFF;
+    uint8_t msr_pat_pa6 = (msr_pat >> 48) & 0xFF;
+    uint8_t msr_pat_pa7 = (msr_pat >> 56) & 0xFF;
+
+    printf_("PAT MSR PA0: 0x%02x\n", msr_pat_pa0);
+    printf_("PAT MSR PA1: 0x%02x\n", msr_pat_pa1);
+    printf_("PAT MSR PA2: 0x%02x\n", msr_pat_pa2);
+    printf_("PAT MSR PA3: 0x%02x\n", msr_pat_pa3);
+    printf_("PAT MSR PA4: 0x%02x\n", msr_pat_pa4);
+    printf_("PAT MSR PA5: 0x%02x\n", msr_pat_pa5);
+    printf_("PAT MSR PA6: 0x%02x\n", msr_pat_pa6);
+    printf_("PAT MSR PA7: 0x%02x\n", msr_pat_pa7);
+
+    msr_pat_pa4 = 1; // Write combining
+    msr_pat_pa5 = 5; // Write protected
+
+    msr_pat = ((uint64_t)msr_pat_pa0 <<  0) | 
+              ((uint64_t)msr_pat_pa1 <<  8) |
+              ((uint64_t)msr_pat_pa2 << 16) |
+              ((uint64_t)msr_pat_pa3 << 24) |
+              ((uint64_t)msr_pat_pa4 << 32) |
+              ((uint64_t)msr_pat_pa5 << 40) |
+              ((uint64_t)msr_pat_pa6 << 48) |
+              ((uint64_t)msr_pat_pa7 << 56) ;
+
+    wrmsr(MSR_REG_PAT, msr_pat);
+
     // ======== IDT64 ========
 
     idt64_disable_interrupts();

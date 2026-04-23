@@ -20,5 +20,7 @@
 
 #define MSR_REG_LAPIC_BASE   0x1B
 
+#define MSR_REG_PAT 0x277
+
 uint64_t rdmsr(uint32_t msr);
 void wrmsr(uint32_t msr, uint64_t value);

@@ -28,3 +28,4 @@ static inline Cpuid cpuid(uint32_t eax) {
 
 #define CPUID_FEAT_EBX_ERMS (1 << 9)
 #define CPUID_FEAT_EDX_FSRM (1 << 4)
+#define CPUID_FEAT_EDX_PAT  (1 << 16)
