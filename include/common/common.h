@@ -13,6 +13,7 @@
 
 #define ALIGN_UP(value, align)   (((value) + (align) - 1) & ~((align) - 1))
 #define ALIGN_DOWN(value, align) ((value) & ~((align) - 1))
+#define DIV_CEIL(a, b)           (((a) + (b) - 1) / (b))
 
 static inline void *phys_to_virt(uintptr_t phys) {
     return (void*)(uintptr_t)(phys + PMM_HHDM_START);

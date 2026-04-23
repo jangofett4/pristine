@@ -298,14 +298,16 @@ void kmain(uint64_t bootinfo_addr) {
 
     // ======== Video Mappings ========
 
-    const size_t    video_pages_count = (global_state.video.height * global_state.video.bytes_per_scanline) / VMM_DEFAULT_PAGE_SIZE;
+    const size_t    video_pages_count = DIV_CEIL((global_state.video.height * global_state.video.bytes_per_scanline), VMM_LARGE_PAGE_SIZE);
     for (uintptr_t i = 0; i < video_pages_count; i++) {
-        vmm_map(
+        const uintptr_t virt = VIDEO_VIRT_START + i * VMM_LARGE_PAGE_SIZE;
+        vmm_map_large(
             global_state.pml4,
-            global_state.video.phys + i * VMM_DEFAULT_PAGE_SIZE,
-            VIDEO_VIRT_START + i * VMM_DEFAULT_PAGE_SIZE,
-            VMM_FLAGS_KERNEL_DATA
+            global_state.video.phys + i * VMM_LARGE_PAGE_SIZE,
+            virt,
+            VMM_FLAGS_KERNEL_DATA | VMM_PS_PAT_PA4
         );
+        vmm_invlpg((void*)virt);
     }
 
     global_state.video.data = (uint8_t*)VIDEO_VIRT_START;

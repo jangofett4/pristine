@@ -37,6 +37,28 @@
 #define VMM_PDPT_HUGE_FLAGS    0x80
 #define VMM_PD_LARGE_FLAGS     0x80
 
+typedef enum {
+    VMM_PAT_PA0 = 0,
+    VMM_PAT_PA1 = 0b00001000,
+    VMM_PAT_PA2 = 0b00010000,
+    VMM_PAT_PA3 = 0b00011000,
+    VMM_PAT_PA4 = 0b10000000,
+    VMM_PAT_PA5 = 0b10001000,
+    VMM_PAT_PA6 = 0b10010000,
+    VMM_PAT_PA7 = 0b10010000,
+} PageAttributeTable;
+
+typedef enum {
+    VMM_PS_PAT_PA0 = 0,
+    VMM_PS_PAT_PA1 = 0b0000000001000,
+    VMM_PS_PAT_PA2 = 0b0000000010000,
+    VMM_PS_PAT_PA3 = 0b0000000011000,
+    VMM_PS_PAT_PA4 = 0b1000000000000,
+    VMM_PS_PAT_PA5 = 0b1000000001000,
+    VMM_PS_PAT_PA6 = 0b1000000010000,
+    VMM_PS_PAT_PA7 = 0b1000000010000,
+} PSPageAttributeTable;
+
 uint64_t *vmm_init(void);
 
 void  vmm_map(uint64_t *pml4, uint64_t phys, uint64_t virt, uint64_t flags);
