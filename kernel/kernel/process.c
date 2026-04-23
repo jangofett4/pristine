@@ -45,3 +45,13 @@ bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs
 
     return true;
 }
+
+void process_destroy(Process *process) {
+    const uintptr_t kernel_stack_start = process->kernel_stack_top - process->kernel_stack_size;
+    const uintptr_t kernel_stack_end   = process->kernel_stack_top;
+    for (uintptr_t p = kernel_stack_start; p < kernel_stack_end; p += VMM_DEFAULT_PAGE_SIZE) {
+        vmm_free(process->pml4, (void*)p);
+    }
+    vmm_destroy(process->pml4);
+    pmm_free(process->pml4_phys);
+}
