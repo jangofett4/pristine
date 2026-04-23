@@ -49,12 +49,7 @@
 GlobalState global_state;
 CpuState cpu_state;
 
-void lapic_timer(void) {
-    printf_("lapic timer hit\n");
-    printf_("current count: %u\n", lapic_read_register(cpu_state.lapic, LAPIC_REG_CURRENT_COUNT_OFFSET));
-    lapic_eoi(cpu_state.lapic);
-}
-
+__attribute__((noreturn))
 void kmain(uint64_t bootinfo_addr) {
     // verify we're running where we think we are
     uint64_t rip;
