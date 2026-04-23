@@ -270,6 +270,54 @@ void vmm_unmap_huge(uint64_t *pml4, uint64_t virt) {
     table_ptr[pdptidx] = 0;
 }
 
+void vmm_free(uint64_t *pml4, void *virt) {
+    const uint16_t pml4idx = VMM_PML4_IDX((uintptr_t)virt);
+    const uint16_t pdptidx = VMM_PDPT_IDX((uintptr_t)virt);
+    const uint16_t pdidx   = VMM_PD_IDX((uintptr_t)virt);
+    const uint16_t ptidx   = VMM_PT_IDX((uintptr_t)virt);
+
+    uint64_t *pdpt = phys_to_virt(pml4[pml4idx] & VMM_PTE_ADDR_MASK);
+    if (!pdpt || !(pml4[pml4idx] & VMM_FLAGS_PRESENT)) {
+        KPANIC("vmm_free: PDPT at %u is not present", pml4idx);
+    }
+
+    if (pdpt[pdptidx] & VMM_PDPT_HUGE_FLAGS) {
+        const uintptr_t phys_start = pdpt[pdptidx] & VMM_PTE_ADDR_MASK;
+        const uintptr_t phys_end   = phys_start + VMM_HUGE_PAGE_SIZE;
+        for (uintptr_t p = phys_start; p < phys_end; p += VMM_DEFAULT_PAGE_SIZE) {
+            pmm_free(p);
+        }
+        pdpt[pdptidx] = 0;
+        vmm_invlpg(virt);
+        return;
+    }
+
+    uint64_t *pd = phys_to_virt(pdpt[pdptidx] & VMM_PTE_ADDR_MASK);
+    if (!pd || !(pdpt[pdptidx] & VMM_FLAGS_PRESENT)) {
+        KPANIC("vmm_free: PD at %u is not present", pdptidx);
+    }
+
+    if (pd[pdidx] & VMM_PD_LARGE_FLAGS) {
+        const uintptr_t phys_start = pd[pdidx] & VMM_PTE_ADDR_MASK;
+        const uintptr_t phys_end   = phys_start + VMM_LARGE_PAGE_SIZE;
+        for (uintptr_t p = phys_start; p < phys_end; p += VMM_DEFAULT_PAGE_SIZE) {
+            pmm_free(p);
+        }
+        pd[pdidx] = 0;
+        vmm_invlpg(virt);
+        return;
+    }
+
+    uint64_t *pt = phys_to_virt(pd[pdidx] & VMM_PTE_ADDR_MASK);
+    if (!pt || !(pt[ptidx] & VMM_FLAGS_PRESENT)) {
+        KPANIC("vmm_free: PT at %u is not present", ptidx);
+    }
+
+    pmm_free(pt[ptidx] & VMM_PTE_ADDR_MASK);
+    pt[ptidx] = 0;
+    vmm_invlpg(virt);
+}
+
 void vmm_destroy(uint64_t *pml4) {
     for (size_t pml4idx = 0; pml4idx < 256; pml4idx++) { // skip upper half, kernel is mapped there
         if (pml4[pml4idx] == 0) continue;

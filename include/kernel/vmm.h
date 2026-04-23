@@ -19,6 +19,8 @@
 #define VMM_PD_IDX(addr)   (((addr) >> 21) & 0x1FF)
 #define VMM_PT_IDX(addr)   (((addr) >> 12) & 0x1FF)
 
+#define VMM_FLAGS_PRESENT      0x01
+
 #define VMM_FLAGS_NO_CACHE     0x10
 
 #define VMM_FLAGS_KERNEL_CODE  0x03                   // P + R/W, no NX
@@ -72,6 +74,8 @@ void  vmm_unmap_huge(uint64_t *pml4, uint64_t virt);
 
 // Deallocates all sub entries of given PML4, doesn't free the PML4 itself. Only destroys up to PML4[256], upper half is untouched.
 void  vmm_destroy(uint64_t *pml4);
+
+void vmm_free(uint64_t *pml4, void *virt);
 
 void  vmm_switch(uint64_t *pml4);
 
