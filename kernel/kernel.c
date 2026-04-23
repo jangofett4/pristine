@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <pristine.h>
+#include <kernel/cpuid.h>
 #include <kernel/panic.h>
 #include <kernel/kernel.h>
 #include <kernel/state.h>
@@ -71,6 +72,22 @@ void kmain(uint64_t bootinfo_addr) {
 
     serial_init(&global_state.serial, 0x3F8);
     serial_set_default(&global_state.serial);
+
+    Cpuid cpuid_result;
+
+    // ======== ERMS ========
+    // If ERMS is available, we can enable it to (theoretically) get better performance
+    // And if FSRM is available we get better performance for smaller copies
+
+    cpuid_result = cpuid_subleaf(7, 0);
+    if ((cpuid_result.ebx & CPUID_FEAT_EBX_ERMS)) {
+        printf_("ERMS is avaiable.\n");
+
+        // We should check FSRM for shorter rep stosb/movsb operations
+        if ((cpuid_result.edx & CPUID_FEAT_EDX_FSRM)) {
+            printf_("FSRM avaiable.\n");
+        }
+    }
 
     // ======== IDT64 ========
 

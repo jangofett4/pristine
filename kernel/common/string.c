@@ -7,16 +7,29 @@
 #include <common/string.h>
 
 void *memcpy(void* dst, const void* src, size_t count) {
-    uint8_t *d = dst;
-    const uint8_t *s = src;
-    while (count--) *d++ = *s++;
+    // rep movsb
+    // inputs: RDI = destination address, RSI = source address, ECX = count
+    // clobbers memory, advances both RDI and RSI and decrements ECX
+    __asm__ volatile(
+        "rep movsb"
+        : "+D"(dst), "+S"(src), "+c"(count)
+        :
+        : "memory"
+    );
     return dst;
 }
 
 void *memset(void *dst, uint8_t data, size_t count) {
-    uint8_t *d = dst;
-    while (count--) *d++= data;
-    return d;
+    // rep stosb
+    // inputs: RDI = destination address, ECX = count, AL = data
+    // clobbers memory, advances RDI, decrements ECX
+    __asm__ volatile(
+        "rep stosb"
+        : "+D"(dst), "+c"(count)
+        : "a"(data)
+        : "memory"
+    );
+    return dst;
 }
 
 size_t strlen(const char *str) {

@@ -25,3 +25,6 @@ static inline Cpuid cpuid_subleaf(uint32_t eax, uint32_t ecx) {
 static inline Cpuid cpuid(uint32_t eax) {
     return cpuid_subleaf(eax, 0);
 }
+
+#define CPUID_FEAT_EBX_ERMS (1 << 9)
+#define CPUID_FEAT_EDX_FSRM (1 << 4)
