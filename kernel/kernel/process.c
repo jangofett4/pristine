@@ -29,9 +29,8 @@ bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs
         vmm_map(pml4, stack_phys, s, VMM_FLAGS_KERNEL_DATA);
     }
 
-    for (size_t i = 256; i < 512; i++) {
-        pml4[i] = kernel_pml4[i];
-    }
+    process->stack_size = stack_size;
+    process->kernel_stack_size = kernel_stack_size;
 
     process->context.cs = cs;
     process->context.ss = ss;

@@ -60,6 +60,8 @@ struct Process {
     uintptr_t      entry;
     uintptr_t      stack_top;
     uintptr_t      kernel_stack_top;
+    size_t         stack_size;
+    size_t         kernel_stack_size;
     ProcessContext context;
     ProcessState   state;
 };
