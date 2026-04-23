@@ -6,7 +6,6 @@
 #pragma once
 
 #include <common/idt64.h>
-#include <kernel/process.h>
 #include <common/bootinfo.h>
 #include <common/bsfs/bsfs.h>
 #include <common/bsfs/bsfs_ops.h>
@@ -29,6 +28,8 @@ typedef struct {
     IDT64Entry    idt_table[IDT64_VECTOR_COUNT];
     uint64_t      *pml4;
 } GlobalState;
+
+typedef struct Process Process;
 
 typedef struct {
     uintptr_t      self;

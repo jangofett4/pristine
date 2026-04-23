@@ -20,6 +20,8 @@
 #include <kernel/syscall.h>
 #include <kernel/slab.h>
 #include <kernel/kmalloc.h>
+#include <kernel/scheduler.h>
+#include <kernel/idle.h>
 #include <common/crc32.h>
 #include <common/elf.h>
 #include <common/memmap.h>
@@ -308,26 +310,69 @@ void kmain(uint64_t bootinfo_addr) {
     };
 
     printf_("BSFS Version %x\n", global_state.bsfs_header.version);
+    printf_("Starting scheduler...\n");
 
-    static uint16_t bins[] = {
-        8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024
-    };
+    Process *idle_process          = kmalloc(sizeof(Process));
+    idle_process->state            = PROCESS_READY;
+    idle_process->entry            = (uintptr_t)&kernel_idle;
+    idle_process->pml4             = global_state.pml4;
+    idle_process->pid              = 0;
+    idle_process->stack_top        = (uintptr_t)__kernel_stack_start;
+    idle_process->kernel_stack_top = (uintptr_t)__kernel_stack_start;
+    idle_process->context.cs       = 0x08;
+    idle_process->context.ss       = 0x10;
+    idle_process->context.rip      = idle_process->entry;
+    idle_process->context.rsp      = idle_process->stack_top;
+    idle_process->context.rflags   = 0x200;
 
-    static uintptr_t addr[1024 * 128];
+    cpu_state.idle_process = idle_process;
+    cpu_state.current_process = idle_process;
 
-    printf_("Testing binning slab allocator...\n");
-    for (size_t i = 0; i < 24; i++) {
-        for (size_t a = 0; a < sizeof(addr) / sizeof(addr[0]); a++) {
-            void *x = kmalloc(bins[i]);
-            *(int*)x = a;
-            addr[a] = (uintptr_t)x;
-        }
-        for (size_t a = 0; a < sizeof(addr) / sizeof(addr[0]); a++) {
-            kfree((void*)addr[a]);
-        }
-        printf_("Bin %4u passed\n", bins[i]);
-    }
-    printf_("Test success...\n");
+    cpu_state.scheduler_next = 0;
 
-    while(1);
+    Process *other_process1          = kmalloc(sizeof(Process));
+    other_process1->state            = PROCESS_READY;
+    other_process1->entry            = (uintptr_t)&kernel_other_process1;
+    other_process1->pml4             = global_state.pml4;
+    other_process1->pid              = 1;
+    other_process1->stack_top        = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
+    other_process1->kernel_stack_top = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
+    other_process1->context.cs       = 0x08;
+    other_process1->context.ss       = 0x10;
+    other_process1->context.rip      = other_process1->entry;
+    other_process1->context.rsp      = other_process1->stack_top;
+    other_process1->context.rflags   = 0x200;
+
+    Process *other_process2          = kmalloc(sizeof(Process));
+    other_process2->state            = PROCESS_READY;
+    other_process2->entry            = (uintptr_t)&kernel_other_process2;
+    other_process2->pml4             = global_state.pml4;
+    other_process2->pid              = 2;
+    other_process2->stack_top        = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
+    other_process2->kernel_stack_top = ((uintptr_t)arena_alloc(4096, 1)) + 4096;
+    other_process2->context.cs       = 0x08;
+    other_process2->context.ss       = 0x10;
+    other_process2->context.rip      = other_process2->entry;
+    other_process2->context.rsp      = other_process2->stack_top;
+    other_process2->context.rflags   = 0x200;
+
+    scheduler_add_process(other_process1);
+    scheduler_add_process(other_process2);
+
+    // Where will the LAPIC interrupts land:
+    idt64_set_callback(0xFF, scheduler_loop);
+
+    // Setup LAPIC timer, again
+    lapic_timer_init(
+        cpu_state.lapic,
+        0xFF,
+        false,
+        LAPIC_TIMER_MODE_PERIODIC,
+        LAPIC_TIMER_DIV_16
+    );
+
+    // Set LAPIC timer counter to period we know (10~ms), then let it loose
+    lapic_timer_set_counter(cpu_state.lapic, cpu_state.lapic_timer_speed);
+
+    while(1) __asm__ volatile("hlt");
 }
