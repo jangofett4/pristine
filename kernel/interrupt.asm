@@ -21,6 +21,11 @@ idt64_isr_%1:
 
 isr_common:
     push rax
+    mov rax, [rsp + 32] ; CS inside the IretFrame
+    and rax, 3          ; Coming from userspace?
+    jz .isr_common_no_gs_swap
+    swapgs
+.isr_common_no_gs_swap:
     push rbx
     push rcx
     push rdx
@@ -51,6 +56,11 @@ isr_common:
     pop rdx
     pop rcx
     pop rbx
+    mov rax, [rsp + 32] ; CS inside the IretFrame
+    and rax, 3          ; Going back to userspace?
+    jz .isr_common_no_gs_swap_exit
+    swapgs
+.isr_common_no_gs_swap_exit:
     pop rax
     add rsp, 16 ; clean up error code + interrupt number pushed by stub
     iretq
