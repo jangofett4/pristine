@@ -10,6 +10,7 @@
 #include <kernel/lapic.h>
 #include <kernel/state.h>
 #include <kernel/scheduler.h>
+#include <kernel/reaper.h>
 
 Process *process_list[SCHEDULER_MAX_PROCESSES];
 
@@ -36,7 +37,15 @@ void scheduler_loop(void) {
         if (cpu_state->scheduler_next >= SCHEDULER_MAX_PROCESSES)
             cpu_state->scheduler_next = 0;
 
-        if (process_list[cpu_state->scheduler_next] != NULL) {
+        Process *proc = process_list[cpu_state->scheduler_next];
+        if (proc != NULL) {
+            if (proc->state == PROCESS_DEAD) {
+                // reaper might be full right now, if failed try again next loop
+                if (reaper_add_process(proc)) {
+                    process_list[cpu_state->scheduler_next] = NULL;
+                }
+                continue;
+            }
             process_to_continue = process_list[cpu_state->scheduler_next];
             break;
         }
@@ -48,8 +57,13 @@ void scheduler_loop(void) {
     } 
 
     if (process_to_continue != cpu_state->current_process) {
-        process_save_state(cpu_state->current_process, frame);
+        if (cpu_state->current_process != NULL && cpu_state->current_process->state != PROCESS_DEAD) {
+            process_save_state(cpu_state->current_process, frame);
+            cpu_state->current_process->state = PROCESS_READY;
+        }
+        process_to_continue->state = PROCESS_RUNNING;
         cpu_state->current_process = process_to_continue;
     }
+
     process_jump(process_to_continue);
 }
