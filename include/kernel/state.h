@@ -35,6 +35,8 @@ typedef struct {
     uint64_t       kernel_stack_top;
     uint64_t       user_stack_rsp;
     Process        *current_process;
+    size_t         scheduler_next;
+    Process        *idle_process;
     uint64_t       id;
 
     uint64_t       *gdt;
