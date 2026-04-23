@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <kernel/cpu.h>
+#include <kernel/state.h>
 #include <kernel/panic.h>
 #include <common/idt64.h>
 #include <common/pic.h>
@@ -311,6 +313,8 @@ void idt64_set_callback(uint8_t vector, IDT64Callback callback) {
 }
 
 void idt64_isr_dispatch(InterruptFrame *frame) {
+    get_cpu_state()->interrupt_frame = frame;
+    
     IDT64Callback handler = isr_callbacks[frame->int_no];
     
     if (!handler) {
