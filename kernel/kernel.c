@@ -253,6 +253,20 @@ void kmain(uint64_t bootinfo_addr) {
     vmm_switch(global_state.pml4);
     idt64_enable_interrupts();
 
+    // ======== Video Mappings ========
+
+    const size_t    video_pages_count = (global_state.video.height * global_state.video.bytes_per_scanline) / VMM_DEFAULT_PAGE_SIZE;
+    for (uintptr_t i = 0; i < video_pages_count; i++) {
+        vmm_map(
+            global_state.pml4,
+            global_state.video.phys + i * VMM_DEFAULT_PAGE_SIZE,
+            VIDEO_VIRT_START + i * VMM_DEFAULT_PAGE_SIZE,
+            VMM_FLAGS_KERNEL_DATA
+        );
+    }
+
+    global_state.video.data = (uint8_t*)VIDEO_VIRT_START;
+
     // ======== Syscall ========
 
     uint64_t msr_star = ((0x10ULL << 48) | (0x08ULL << 32)) & (0xFFFFFFFF00000000);

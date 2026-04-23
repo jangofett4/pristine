@@ -9,16 +9,19 @@
 #include <stddef.h>
 #include <common/vesa.h>
 
+#define VIDEO_VIRT_START 0xFFFF920040000000
+
 typedef struct {
-    uint8_t  *address;
-    uint32_t width;
-    uint32_t height;
-    uint32_t bpp;
-    uint32_t bytes_per_scanline;
-    uint32_t bytes_per_pixel;
-    uint32_t row;
-    uint32_t column;
-    uint32_t color;
+    uintptr_t  phys;
+    void      *data;
+    uint32_t   width;
+    uint32_t   height;
+    uint32_t   bpp;
+    uint32_t   bytes_per_scanline;
+    uint32_t   bytes_per_pixel;
+    uint32_t   row;
+    uint32_t   column;
+    uint32_t   color;
 } Video;
 
 void video_init(Video *video, const VesaVbeModeInfo *mode_info);
