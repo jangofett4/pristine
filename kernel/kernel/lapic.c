@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <kernel/cpu.h>
 #include <kernel/lapic.h>
 #include <kernel/vmm.h>
 #include <kernel/mmio.h>

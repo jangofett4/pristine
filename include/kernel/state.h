@@ -49,18 +49,3 @@ _Static_assert(offsetof(CpuState, self)             == 0x00, "CpuState.self at w
 _Static_assert(offsetof(CpuState, kernel_stack_top) == 0x08, "CpuState.kernel_stack_top at wrong offset");
 _Static_assert(offsetof(CpuState, user_stack_rsp)   == 0x10, "CpuState.user_stack_rsp at wrong offset");
 _Static_assert(offsetof(CpuState, current_process)  == 0x18, "CpuState.current_process at wrong offset");
-
-static inline CpuState *get_cpu_state() {
-    CpuState *state;
-    __asm__ volatile(
-        "mov %%gs:0, %0"
-        : "=r"(state) 
-    );
-    return state;
-}
-
-extern GlobalState global_state;
-
-static inline GlobalState *get_global_state() {
-    return &global_state;
-}

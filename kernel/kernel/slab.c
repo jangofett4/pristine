@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <kernel/cpu.h>
 #include <common/common.h>
 #include <common/idt64.h>
 #include <kernel/panic.h>
