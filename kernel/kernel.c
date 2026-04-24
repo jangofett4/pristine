@@ -432,45 +432,50 @@ void kmain(uint64_t bootinfo_addr) {
         global_state.pml4
     );
 
-    Process   *other_process1           = kmalloc(sizeof(Process));
-    uintptr_t  other_process1_pml4_phys = pmm_alloc();
-    uint64_t  *other_process1_pml4      = phys_to_virt(other_process1_pml4_phys);
-    memset(other_process1_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
-    process_create(
-        other_process1,
-         100,
-        (uintptr_t)kernel_other_process1,
-        0x08, 0x10, 0x200,
-        0,
-        0,
-        PROCESS_VIRT_KERNEL_STACK_TOP,
-        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
-        other_process1_pml4,
-        other_process1_pml4_phys,
-        global_state.pml4
-    );
-
-    Process   *other_process2           = kmalloc(sizeof(Process));
-    uintptr_t  other_process2_pml4_phys = pmm_alloc();
-    uint64_t  *other_process2_pml4      = phys_to_virt(other_process2_pml4_phys);
-    memset(other_process2_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
-    process_create(
-        other_process2,
-        101,
-        (uintptr_t)kernel_other_process2,
-        0x08, 0x10, 0x200,
-        0,
-        0,
-        PROCESS_VIRT_KERNEL_STACK_TOP,
-        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
-        other_process2_pml4,
-        other_process2_pml4_phys,
-        global_state.pml4
-    );
-
     scheduler_add_process(reaper_process);
-    scheduler_add_process(other_process1);
-    scheduler_add_process(other_process2);
+
+    int bsfs_result = 0;
+    BsfsFile file = {
+        .buf = arena_alloc(VMM_DEFAULT_PAGE_SIZE, 1),
+        .bufsize = VMM_DEFAULT_PAGE_SIZE,
+        .inode = arena_alloc(sizeof(BsfsInode), _Alignof(BsfsInode))
+    };
+    if ((bsfs_result = bsfs_fopen(&global_state.bsfs_context, "/bin/hello.elf", &file)) < 0) {
+        const char *err = bsfs_strerror(bsfs_result);
+        KPANIC("kmain: unable to open hello.elf: %s", err);
+    }
+    if ((bsfs_result = bsfs_verify_checksum(&global_state.bsfs_context, &file, arena_alloc(VMM_DEFAULT_PAGE_SIZE, 1), VMM_DEFAULT_PAGE_SIZE) < 0)) {
+        const char *err = bsfs_strerror(bsfs_result);
+        KPANIC("kmain: unable to verify checksum of hello.elf: %s", err);
+    }
+    bsfs_fseeko(&global_state.bsfs_context, &file, 0, BSFS_FSEEKO_SET);
+
+    Process   *hello_process   = kmalloc(sizeof(Process));
+    uintptr_t  hello_pml4_phys = pmm_alloc();
+    uint64_t  *hello_pml4      = phys_to_virt(hello_pml4_phys);
+    Elf64Ehdr  hello_ehdr;
+    memset(hello_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
+
+    elf64_load_executable(&global_state.bsfs_context, &file, hello_pml4, &hello_ehdr);
+
+    process_create(
+        hello_process,
+        100,
+        hello_ehdr.e_entry,
+        0x23,
+        0x1B,
+        0x200,
+        PROCESS_VIRT_STACK_TOP,
+        PROCESS_DEFAULT_STACK_SIZE,
+        PROCESS_VIRT_KERNEL_STACK_TOP,
+        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        hello_pml4,
+        hello_pml4_phys,
+        global_state.pml4
+    );
+
+    arena_reset();
+    scheduler_add_process(hello_process);
 
     // Where will the LAPIC interrupts land:
     idt64_set_callback(0xFF, scheduler_loop);
