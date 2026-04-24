@@ -62,6 +62,7 @@ struct Process {
     uintptr_t      kernel_stack_top;
     size_t         stack_size;
     size_t         kernel_stack_size;
+    int            exit_code;
     ProcessContext context;
     ProcessState   state;
 };
