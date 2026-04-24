@@ -160,7 +160,9 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC("kernel: memory map exceeds maximum items of %i, possibly malformed memory", MEMMAP_MAX_ITEMS);
     }
 
-    global_state.system_memory = memmap_bitmap_init(global_state.bootinfo.memory_map, global_state.bootinfo.memory_map_count, global_state.memory_bitmap);
+    MemmapInitResult memmap_result = memmap_bitmap_init(global_state.bootinfo.memory_map, global_state.bootinfo.memory_map_count, global_state.memory_bitmap);
+    global_state.system_memory = memmap_result.memory_usable;
+    pmm_set_bitmap_size(memmap_result.memory_usable_top / 8 / VMM_DEFAULT_PAGE_SIZE);
 
     uint64_t memory_bitmap_start_phys = ((uint64_t)global_state.bootinfo.memory_bitmap) - PMM_HHDM_START;
     uint64_t memory_bitmap_end_phys   = memory_bitmap_start_phys + global_state.bootinfo.memory_bitmap_size;

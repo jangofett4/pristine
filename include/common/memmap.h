@@ -22,6 +22,12 @@ typedef struct {
     uint32_t Type;
 } __attribute__((packed)) MemmapEntry;
 
+typedef struct {
+    uint64_t  memory_usable;
+    uintptr_t memory_usable_top;
+    uintptr_t memory_top;
+} MemmapInitResult;
+
 // This function walks the memory map entries and marks bitmap accordinly.
 // Returns total usable memory in bytes
-uint64_t memmap_bitmap_init(MemmapEntry *entries, size_t count, uint8_t *bitmap);
+MemmapInitResult memmap_bitmap_init(MemmapEntry *entries, size_t count, uint8_t *bitmap);

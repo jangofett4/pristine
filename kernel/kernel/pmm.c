@@ -52,3 +52,19 @@ void pmm_free(uint64_t page) {
     
     bitmap_clear(__pmm_bitmap, idx);
 }
+
+void pmm_set_bitmap_size(uint32_t bitmap_size) {
+    __pmm_bitmap_size = bitmap_size;
+}
+
+// this function walks the whole bitmap and counts empty pages.
+// this is a rather expensive operation
+size_t pmm_get_free_page_count(void) {
+    size_t count = 0;
+    for (size_t i = 0; i < __pmm_bitmap_size * 8; i++) {
+        if (bitmap_test(__pmm_bitmap, i)) {
+            count++;
+        }
+    }
+    return count;
+}
