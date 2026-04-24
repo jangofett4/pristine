@@ -62,7 +62,7 @@ void pmm_set_bitmap_size(uint32_t bitmap_size) {
 size_t pmm_get_free_page_count(void) {
     size_t count = 0;
     for (size_t i = 0; i < __pmm_bitmap_size * 8; i++) {
-        if (bitmap_test(__pmm_bitmap, i)) {
+        if (!bitmap_test(__pmm_bitmap, i)) {
             count++;
         }
     }
