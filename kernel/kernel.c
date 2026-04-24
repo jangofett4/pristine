@@ -287,6 +287,7 @@ void kmain(uint64_t bootinfo_addr) {
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
+    vmm_unmap(global_state.pml4, (uintptr_t)__kernel_bss_guard_base);
     vmm_unmap(global_state.pml4, (uintptr_t)__kernel_stack_guard);
     vmm_unmap(global_state.pml4, (uintptr_t)__kernel_rsp0_guard);
     vmm_unmap(global_state.pml4, (uintptr_t)__kernel_ist1_guard);
