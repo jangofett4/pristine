@@ -19,9 +19,11 @@ bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs
         pml4[i] = kernel_pml4[i];
     }
 
-    for (size_t s = stack_top - stack_size; s < stack_top; s += VMM_DEFAULT_PAGE_SIZE) {
-        uintptr_t stack_phys = pmm_alloc();
-        vmm_map(pml4, stack_phys, s, VMM_FLAGS_USER_DATA);
+    if (stack_top != 0 && stack_size != 0) {
+        for (size_t s = stack_top - stack_size; s < stack_top; s += VMM_DEFAULT_PAGE_SIZE) {
+            uintptr_t stack_phys = pmm_alloc();
+            vmm_map(pml4, stack_phys, s, VMM_FLAGS_USER_DATA);
+        }
     }
 
     for (size_t s = kernel_stack_top - kernel_stack_size; s < kernel_stack_top; s += VMM_DEFAULT_PAGE_SIZE) {
@@ -29,18 +31,25 @@ bool process_create(Process *process, uint32_t pid, uintptr_t entry, uint64_t cs
         vmm_map(pml4, stack_phys, s, VMM_FLAGS_KERNEL_DATA);
     }
 
-    process->stack_size = stack_size;
-    process->kernel_stack_size = kernel_stack_size;
 
     process->context.cs = cs;
     process->context.ss = ss;
     process->context.rip = entry;
-    process->context.rsp = stack_top;
     process->context.rflags = rflags;
 
+    if (stack_top != 0 && stack_size != 0) {
+        process->stack_top = stack_top;
+        process->stack_size = stack_size;
+        process->context.rsp = stack_top;
+    } else {
+        process->stack_top = kernel_stack_top;
+        process->stack_size = kernel_stack_size;
+        process->context.rsp = kernel_stack_top;
+    }
+
     process->entry = entry;
-    process->stack_top = stack_top;
     process->kernel_stack_top = kernel_stack_top;
+    process->kernel_stack_size = kernel_stack_size;
     process->state = PROCESS_READY;
 
     return true;
