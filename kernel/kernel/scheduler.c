@@ -56,15 +56,14 @@ void scheduler_loop(void) {
         process_to_continue = cpu_state->idle_process;
     } 
 
-    if (process_to_continue != cpu_state->current_process) {
-        if (cpu_state->current_process != NULL && cpu_state->current_process->state != PROCESS_DEAD) {
-            process_save_state(cpu_state->current_process, frame);
-            cpu_state->current_process->state = PROCESS_READY;
-        }
-        process_to_continue->state = PROCESS_RUNNING;
-        cpu_state->current_process = process_to_continue;
-        cpu_state->kernel_stack_top = process_to_continue->kernel_stack_top;
+    if (cpu_state->current_process != NULL && cpu_state->current_process->state != PROCESS_DEAD) {
+        process_save_state(cpu_state->current_process, frame);
+        cpu_state->current_process->state = PROCESS_READY;
     }
+
+    process_to_continue->state = PROCESS_RUNNING;
+    cpu_state->current_process = process_to_continue;
+    cpu_state->kernel_stack_top = process_to_continue->kernel_stack_top;
 
     process_jump(process_to_continue);
 }
