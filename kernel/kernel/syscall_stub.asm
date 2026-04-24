@@ -11,8 +11,8 @@ extern syscall_table_count
 global syscall_stub
 syscall_stub:
     swapgs
-    mov [gs:0x08], rsp ; Save user RSP
-    mov rsp, [gs:0x00] ; Move to kernel stack
+    mov [gs:0x10], rsp ; Save user RSP
+    mov rsp, [gs:0x08] ; Move to kernel stack
 
     push rcx ; User RIP
     push r11 ; User RFLAGS
@@ -33,6 +33,6 @@ syscall_stub:
     pop r11
     pop rcx
 
-    mov rsp, [gs:0x08] ; Restore user RSP
+    mov rsp, [gs:0x10] ; Restore user RSP
     swapgs
     o64 sysret

@@ -63,6 +63,7 @@ void scheduler_loop(void) {
         }
         process_to_continue->state = PROCESS_RUNNING;
         cpu_state->current_process = process_to_continue;
+        cpu_state->kernel_stack_top = process_to_continue->kernel_stack_top;
     }
 
     process_jump(process_to_continue);
