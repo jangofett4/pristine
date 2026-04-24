@@ -30,7 +30,7 @@ int64_t syscall_serial_puts(uint64_t arg) {
 int64_t syscall_exit(uint64_t arg) {
     const CpuState * state = get_cpu_state();
     state->current_process->state = PROCESS_DEAD;
-    scheduler_loop();
+    scheduler_yield();
     __builtin_unreachable();
 }
 
