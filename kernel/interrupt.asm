@@ -7,6 +7,7 @@ extern idt64_isr_dispatch
 %macro ISR_NOERR 1
 global idt64_isr_%1
 idt64_isr_%1:
+    cli
     push qword 0
     push qword %1
     jmp isr_common
@@ -15,6 +16,7 @@ idt64_isr_%1:
 %macro ISR_ERR 1
 global idt64_isr_%1
 idt64_isr_%1:
+    cli
     push qword %1
     jmp isr_common
 %endmacro
