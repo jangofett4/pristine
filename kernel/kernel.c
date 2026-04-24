@@ -402,10 +402,9 @@ void kmain(uint64_t bootinfo_addr) {
     idle_process->context.rsp      = idle_process->stack_top;
     idle_process->context.rflags   = 0x200;
 
-    cpu_state.idle_process = idle_process;
-    cpu_state.current_process = idle_process;
-
-    cpu_state.scheduler_next = 0;
+    cpu_state.idle_process    = idle_process;
+    cpu_state.current_process = NULL;
+    cpu_state.scheduler_next  = 0;
 
     Process   *reaper_process           = kmalloc(sizeof(Process));
     uintptr_t  reaper_process_pml4_phys = pmm_alloc();
