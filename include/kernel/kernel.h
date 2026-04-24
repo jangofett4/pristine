@@ -30,3 +30,7 @@ extern uint8_t __kernel_ist1_guard[];
 #define KERNEL_IST1_SIZE  (0x1000 * 1)
 #define KERNEL_IST2_SIZE  (0x1000 * 1)
 #define KERNEL_IST3_SIZE  (0x1000 * 1)
+
+static inline void kernel_halt(void) {
+    __asm__ volatile("hlt");
+}

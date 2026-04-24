@@ -32,13 +32,14 @@ void reaper_run(void) {
         process_list_reap[reaper_cursor] = NULL;
         idt64_enable_interrupts();
 
+        reaper_cursor++;
+
         if (process_to_reap != NULL) {
             process_destroy(process_to_reap);
             kfree(process_to_reap);
+            scheduler_yield();
+        } else {
+            kernel_halt();
         }
-
-        reaper_cursor++;
-
-        scheduler_loop();
     }
 }

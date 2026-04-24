@@ -14,3 +14,7 @@ extern void scheduler_isr(void);
 
 bool scheduler_add_process(Process *process);
 void scheduler_loop(void);
+
+static inline void scheduler_yield(void) {
+    __asm__ volatile("int $0xFF");
+}
