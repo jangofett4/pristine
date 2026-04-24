@@ -389,18 +389,25 @@ void kmain(uint64_t bootinfo_addr) {
     printf_("BSFS Version %x\n", global_state.bsfs_header.version);
     printf_("Starting scheduler...\n");
 
-    Process *idle_process          = kmalloc(sizeof(Process));
-    idle_process->state            = PROCESS_READY;
-    idle_process->entry            = (uintptr_t)&kernel_idle;
-    idle_process->pml4             = global_state.pml4;
-    idle_process->pid              = 0;
-    idle_process->stack_top        = (uintptr_t)__kernel_stack_start;
-    idle_process->kernel_stack_top = (uintptr_t)__kernel_stack_start;
-    idle_process->context.cs       = 0x08;
-    idle_process->context.ss       = 0x10;
-    idle_process->context.rip      = idle_process->entry;
-    idle_process->context.rsp      = idle_process->stack_top;
-    idle_process->context.rflags   = 0x200;
+    Process   *idle_process           = kmalloc(sizeof(Process));
+    uintptr_t  idle_process_pml4_phys = pmm_alloc();
+    uint64_t  *idle_process_pml4      = phys_to_virt(idle_process_pml4_phys);
+    memset(idle_process_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
+    process_create(
+        idle_process,
+        0,
+        (uintptr_t)kernel_idle,
+        0x08,
+        0x10,
+        0x200,
+        0,
+        0,
+        PROCESS_VIRT_KERNEL_STACK_TOP,
+        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        idle_process_pml4,
+        idle_process_pml4_phys,
+        global_state.pml4
+    );
 
     cpu_state.idle_process    = idle_process;
     cpu_state.current_process = NULL;
