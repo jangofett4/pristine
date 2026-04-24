@@ -17,3 +17,5 @@ extern SyscallHandler syscall_table[];
 
 void syscall_init(void);
 extern void syscall_stub(void);
+
+int64_t syscall_exit(uint64_t arg);
