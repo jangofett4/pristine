@@ -22,6 +22,7 @@
 #include <kernel/slab.h>
 #include <kernel/kmalloc.h>
 #include <kernel/scheduler.h>
+#include <kernel/reaper.h>
 #include <kernel/idle.h>
 #include <common/crc32.h>
 #include <common/elf.h>
@@ -406,13 +407,31 @@ void kmain(uint64_t bootinfo_addr) {
 
     cpu_state.scheduler_next = 0;
 
+    Process   *reaper_process           = kmalloc(sizeof(Process));
+    uintptr_t  reaper_process_pml4_phys = pmm_alloc();
+    uint64_t  *reaper_process_pml4      = phys_to_virt(reaper_process_pml4_phys);
+    memset(reaper_process_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
+    process_create(
+        reaper_process,
+        1,
+        (uintptr_t)reaper_run,
+        0x08, 0x10, 0x200,
+        0,
+        0,
+        PROCESS_VIRT_KERNEL_STACK_TOP,
+        PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        reaper_process_pml4,
+        reaper_process_pml4_phys,
+        global_state.pml4
+    );
+
     Process   *other_process1           = kmalloc(sizeof(Process));
     uintptr_t  other_process1_pml4_phys = pmm_alloc();
     uint64_t  *other_process1_pml4      = phys_to_virt(other_process1_pml4_phys);
     memset(other_process1_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
     process_create(
         other_process1,
-        1,
+         100,
         (uintptr_t)kernel_other_process1,
         0x08, 0x10, 0x200,
         0,
@@ -430,7 +449,7 @@ void kmain(uint64_t bootinfo_addr) {
     memset(other_process2_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
     process_create(
         other_process2,
-        2,
+        101,
         (uintptr_t)kernel_other_process2,
         0x08, 0x10, 0x200,
         0,
@@ -442,6 +461,7 @@ void kmain(uint64_t bootinfo_addr) {
         global_state.pml4
     );
 
+    scheduler_add_process(reaper_process);
     scheduler_add_process(other_process1);
     scheduler_add_process(other_process2);
 
