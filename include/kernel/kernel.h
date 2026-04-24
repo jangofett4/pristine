@@ -13,12 +13,13 @@
 #define KERNEL_BASE_OFFSET    0xFFFFFFFF80000000ULL
 #define KERNEL_BASE_VIRT      (KERNEL_BASE_OFFSET + KERNEL_BASE_PHYS)
 
-extern uint8_t __kernel_ist1_start[];
-extern uint8_t __kernel_ist2_start[];
-extern uint8_t __kernel_ist3_start[];
-extern uint8_t __kernel_rsp0_start[];
-extern uint8_t __kernel_stack_start[];
+extern uint8_t __kernel_ist1_top[];
+extern uint8_t __kernel_ist2_top[];
+extern uint8_t __kernel_ist3_top[];
+extern uint8_t __kernel_rsp0_top[];
+extern uint8_t __kernel_stack_top[];
 
+extern uint8_t __kernel_bss_guard_base[];
 extern uint8_t __kernel_stack_guard[];
 extern uint8_t __kernel_rsp0_guard[];
 extern uint8_t __kernel_ist3_guard[];

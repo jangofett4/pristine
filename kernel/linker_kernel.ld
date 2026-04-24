@@ -28,32 +28,42 @@ SECTIONS
         . = ALIGN(4096);
         __kernel_ist1_guard = .;
         . += 4096;
-        __kernel_ist1_start = . + 0x1000;
+        __kernel_ist1_base = .;
         . += 0x1000;
+        __kernel_ist1_top = .;
 
         . = ALIGN(4096);
         __kernel_ist2_guard = .;
         . += 4096;
-        __kernel_ist2_start = . + 0x1000;
+        __kernel_ist2_base = .;
         . += 0x1000;
+        __kernel_ist2_top = .;
 
         . = ALIGN(4096);
         __kernel_ist3_guard = .;
         . += 4096;
-        __kernel_ist3_start = . + 0x1000;
+        __kernel_ist3_base = .;
         . += 0x1000;
+        __kernel_ist3_top = .;
 
         . = ALIGN(4096);
         __kernel_rsp0_guard = .;
         . += 4096;
-        __kernel_rsp0_start = . + 0x1000;
+        __kernel_rsp0_base = .;
         . += 0x1000;
+        __kernel_rsp0_top = .;
 
         . = ALIGN(4096);
         __kernel_stack_guard = .;
         . += 4096;
-        __kernel_stack_start = . + 0x4000;
+        __kernel_stack_base = .;
         . += 0x4000;
+        __kernel_stack_top = .;
+
+        __kernel_bss_guard_base = .;
+        . += 4096;
+        __kernel_bss_guard_top = .;
+
         *(.bss*) 
     }
 }

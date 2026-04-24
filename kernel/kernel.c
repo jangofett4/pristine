@@ -202,15 +202,15 @@ void kmain(uint64_t bootinfo_addr) {
 
     memcpy(cpu_state.gdt, global_state.bootinfo.gdt, global_state.bootinfo.gdt_entries * sizeof(uint64_t));
     
-    cpu_state.tss[0].rsp0 = (uint64_t)__kernel_rsp0_start;
-    cpu_state.tss[0].ist1 = (uint64_t)__kernel_ist1_start;
-    cpu_state.tss[0].ist2 = (uint64_t)__kernel_ist2_start;
-    cpu_state.tss[0].ist3 = (uint64_t)__kernel_ist3_start;
+    cpu_state.tss[0].rsp0 = (uint64_t)__kernel_rsp0_top;
+    cpu_state.tss[0].ist1 = (uint64_t)__kernel_ist1_top;
+    cpu_state.tss[0].ist2 = (uint64_t)__kernel_ist2_top;
+    cpu_state.tss[0].ist3 = (uint64_t)__kernel_ist3_top;
 
-    printf_("TSS.RSP0 %p\n", __kernel_rsp0_start);
-    printf_("TSS.IST1 %p\n", __kernel_ist1_start);
-    printf_("TSS.IST2 %p\n", __kernel_ist2_start);
-    printf_("TSS.IST3 %p\n", __kernel_ist3_start);
+    printf_("TSS.RSP0 %p\n", __kernel_rsp0_top);
+    printf_("TSS.IST1 %p\n", __kernel_ist1_top);
+    printf_("TSS.IST2 %p\n", __kernel_ist2_top);
+    printf_("TSS.IST3 %p\n", __kernel_ist3_top);
 
     // gdt[0] -> null (offset 0)
     // gdt[1] -> kernel code (offset 0x08)
@@ -258,31 +258,31 @@ void kmain(uint64_t bootinfo_addr) {
     // Stack, RSP0, IST1
 
     for (uintptr_t i = 0; i < KERNEL_STACK_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
-        const uintptr_t addr = (uintptr_t)__kernel_stack_start - KERNEL_STACK_SIZE + i;
+        const uintptr_t addr = (uintptr_t)__kernel_stack_top - KERNEL_STACK_SIZE + i;
         vmm_unmap(global_state.pml4, addr);
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_RSP0_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
-        const uintptr_t addr = (uintptr_t)__kernel_rsp0_start - KERNEL_RSP0_SIZE + i;
+        const uintptr_t addr = (uintptr_t)__kernel_rsp0_top - KERNEL_RSP0_SIZE + i;
         vmm_unmap(global_state.pml4, addr);
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST1_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
-        const uintptr_t addr = (uintptr_t)__kernel_ist1_start - KERNEL_IST1_SIZE + i;
+        const uintptr_t addr = (uintptr_t)__kernel_ist1_top - KERNEL_IST1_SIZE + i;
         vmm_unmap(global_state.pml4, addr);
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST2_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
-        const uintptr_t addr = (uintptr_t)__kernel_ist2_start - KERNEL_IST2_SIZE + i;
+        const uintptr_t addr = (uintptr_t)__kernel_ist2_top - KERNEL_IST2_SIZE + i;
         vmm_unmap(global_state.pml4, addr);
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
 
     for (uintptr_t i = 0; i < KERNEL_IST3_SIZE; i += VMM_DEFAULT_PAGE_SIZE) {
-        const uintptr_t addr = (uintptr_t)__kernel_ist3_start - KERNEL_IST3_SIZE + i;
+        const uintptr_t addr = (uintptr_t)__kernel_ist3_top - KERNEL_IST3_SIZE + i;
         vmm_unmap(global_state.pml4, addr);
         vmm_map(global_state.pml4, kernel_virt_to_phys((void*)addr), addr, VMM_FLAGS_KERNEL_DATA);
     }
