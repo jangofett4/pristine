@@ -406,7 +406,10 @@ void kmain(uint64_t bootinfo_addr) {
 
     cpu_state.scheduler_next = 0;
 
-    Process *other_process1          = kmalloc(sizeof(Process));
+    Process   *other_process1           = kmalloc(sizeof(Process));
+    uintptr_t  other_process1_pml4_phys = pmm_alloc();
+    uint64_t  *other_process1_pml4      = phys_to_virt(other_process1_pml4_phys);
+    memset(other_process1_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
     process_create(
         other_process1,
         1,
@@ -416,10 +419,15 @@ void kmain(uint64_t bootinfo_addr) {
         PROCESS_DEFAULT_STACK_SIZE,
         PROCESS_VIRT_KERNEL_STACK_TOP,
         PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        other_process1_pml4,
+        other_process1_pml4_phys,
         global_state.pml4
     );
 
-    Process *other_process2          = kmalloc(sizeof(Process));
+    Process   *other_process2           = kmalloc(sizeof(Process));
+    uintptr_t  other_process2_pml4_phys = pmm_alloc();
+    uint64_t  *other_process2_pml4      = phys_to_virt(other_process2_pml4_phys);
+    memset(other_process2_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
     process_create(
         other_process2,
         2,
@@ -429,6 +437,8 @@ void kmain(uint64_t bootinfo_addr) {
         PROCESS_DEFAULT_STACK_SIZE,
         PROCESS_VIRT_KERNEL_STACK_TOP,
         PROCESS_DEFAULT_KERNEL_STACK_SIZE,
+        other_process2_pml4,
+        other_process2_pml4_phys,
         global_state.pml4
     );
 
