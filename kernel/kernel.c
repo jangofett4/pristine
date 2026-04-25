@@ -462,6 +462,10 @@ void kmain(uint64_t bootinfo_addr) {
         KPANIC("kmain: unable to load hello.elf: %s", err);
     }
 
+    // 0x1000 for the guard page, leave in unmapped and in case things go south in the application this will prevent errors
+    hello_process->brk_start = elf_load_result.top + 0x1000;
+    hello_process->brk       = elf_load_result.top + 0x1000;
+
     process_create(
         hello_process,
         100,
