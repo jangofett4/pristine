@@ -438,7 +438,8 @@ void kmain(uint64_t bootinfo_addr) {
     BsfsFile file = {
         .buf = arena_alloc(VMM_DEFAULT_PAGE_SIZE, 1),
         .bufsize = VMM_DEFAULT_PAGE_SIZE,
-        .inode = arena_alloc(sizeof(BsfsInode), _Alignof(BsfsInode))
+        .inode = arena_alloc(sizeof(BsfsInode), _Alignof(BsfsInode)),
+        .l1_table = arena_alloc(0x1000, 1)
     };
     if ((bsfs_result = bsfs_fopen(&global_state.bsfs_context, "/bin/hello.elf", &file)) < 0) {
         const char *err = bsfs_strerror(bsfs_result);

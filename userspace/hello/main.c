@@ -1,3 +1,4 @@
+#include <malloc.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
@@ -5,11 +6,8 @@
 
 int main() {
     const char *str = "Hello, World!\n";
-    char *ptr = sbrk(0x4000);
+    char *ptr = malloc(20);
     memcpy(ptr, str, 15);
-    sbrk(-0x1000);
-    sbrk(-0x1000);
-    sbrk(-0x1000);
-    sbrk(-0x1000);
+    free(ptr);
     return 0;
 }
