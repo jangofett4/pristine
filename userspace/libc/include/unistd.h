@@ -9,6 +9,4 @@
 
 #include <stdint.h>
 
-static inline void *sbrk(intptr_t count) {
-    return (void*)syscall1(SYS_SBRK, count);
-}
+void *sbrk(intptr_t count);
