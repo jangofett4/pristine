@@ -4,18 +4,14 @@
  * SPDX-License-Identifier MIT
  */
 
+#include <stdlib.h>
+
 extern int main();
 
 void _start() {
     main();
 
-    __asm__ volatile (
-        "syscall"
-        :
-        : "a"(2), "D"(0)
-        : "rcx", "r11", "memory"
-    );
-
+    exit(0);
     
     while(1) __asm__ volatile("pause");
     __builtin_unreachable();
