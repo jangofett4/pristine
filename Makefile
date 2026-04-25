@@ -3,6 +3,8 @@ export REPO_ROOT = $(shell pwd)
 ASM      = nasm
 ASMFLAGS = -f elf32 -g
 
+ARGUEST32      = ${CROSSGCC32}ar
+ARGUEST64      = ${CROSSGCC64}ar
 CGUEST32       = ${CROSSGCC32}gcc
 CGUEST64       = ${CROSSGCC64}gcc
 LDGUEST32      = ${CROSSGCC32}ld
@@ -12,6 +14,7 @@ OBJCOPYGUEST64 = ${CROSSBINUTILS64}objcopy
 
 export CGUEST64
 export LDGUEST64
+export ARGUEST64
 
 LDHOST   = ld
 CHOST    = gcc
