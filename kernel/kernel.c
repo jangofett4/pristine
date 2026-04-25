@@ -456,7 +456,11 @@ void kmain(uint64_t bootinfo_addr) {
     Elf64Ehdr  hello_ehdr;
     memset(hello_pml4, 0, VMM_DEFAULT_PAGE_SIZE);
 
-    elf64_load_executable(&global_state.bsfs_context, &file, hello_pml4, &hello_ehdr);
+    Elf64LoadResult elf_load_result = elf64_load_executable(&global_state.bsfs_context, &file, hello_pml4, &hello_ehdr);
+    if (elf_load_result.result < 0) {
+        const char *err = elf64_strerror(elf_load_result.result);
+        KPANIC("kmain: unable to load hello.elf: %s", err);
+    }
 
     process_create(
         hello_process,

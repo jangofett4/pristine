@@ -63,6 +63,11 @@ static inline bool elf64_check_magic(const Elf64Ehdr *hdr) {
            hdr->e_ident[3] == 0x46  ;
 }
 
+typedef struct {
+    int       result;
+    uintptr_t top;
+} Elf64LoadResult;
+
 // Loads given file 
-int elf64_load_executable(BsfsContext *context, BsfsFile *file, uint64_t *pml4, Elf64Ehdr *out_header);
+Elf64LoadResult elf64_load_executable(BsfsContext *context, BsfsFile *file, uint64_t *pml4, Elf64Ehdr *out_header);
 const char *elf64_strerror(int err);
