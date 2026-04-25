@@ -9,13 +9,6 @@
 #include <kernel/syscall.h>
 #include <kernel/scheduler.h>
 
-void syscall_init(void) {
-}
-
-int64_t syscall_nop(uint64_t arg) {
-    return SYSCALL_OK;
-}
-
 int64_t syscall_serial_puts(uint64_t arg) {
     if (arg == 0) return SYSCALL_ERR;
     Serial *serial = serial_get_default();
@@ -35,10 +28,20 @@ int64_t syscall_exit(uint64_t arg) {
     __builtin_unreachable();
 }
 
+int64_t syscall_yield(uint64_t arg) {
+    scheduler_yield();
+    __builtin_unreachable();
+}
+
+int64_t syscall_sbrk(uint64_t arg) {
+    return 0;
+}
+
 SyscallHandler syscall_table[] = {
-    syscall_nop,
-    syscall_serial_puts,
     syscall_exit,
+    syscall_sbrk, 
+    syscall_yield,
+    syscall_serial_puts,
 };
 
 // TODO: this is not optimal, requires memory access to check if syscall is in bounds

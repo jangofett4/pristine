@@ -328,8 +328,6 @@ void kmain(uint64_t bootinfo_addr) {
     wrmsr(MSR_REG_GSBASE, (uint64_t)(uintptr_t)&cpu_state);
     wrmsr(MSR_REG_KERNELGSBASE, 0);
 
-    syscall_init();
-
     // ======== LAPIC & PIT ========
 
     // LAPIC timer is running at a speed we don't know yet. So, to 
